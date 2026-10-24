@@ -40,11 +40,15 @@ plot_length = plot_area / plot_width
 # Placeholder coverage and setbacks: not locally verified.
 coverage_assumption = 0.60
 setback_assumption = 1.0
-footprint = plot_area * coverage_assumption
-approx_w = plot_width * math.sqrt(coverage_assumption)
-approx_l = plot_length * math.sqrt(coverage_assumption)
-floor_plate = min(footprint, max(20.0, (plot_width - 2*setback_assumption)*(plot_length - 2*setback_assumption)))
-floor_plate = min(floor_plate, footprint)
+# Keep the footprint dimensions and area consistent. The earlier version calculated
+# floor_plate separately from approx_w/approx_l, so drawings and estimates could disagree.
+coverage_width = plot_width * math.sqrt(coverage_assumption)
+coverage_length = plot_length * math.sqrt(coverage_assumption)
+usable_width = max(1.0, plot_width - 2 * setback_assumption)
+usable_length = max(1.0, plot_length - 2 * setback_assumption)
+approx_w = min(coverage_width, usable_width)
+approx_l = min(coverage_length, usable_length)
+floor_plate = approx_w * approx_l
 
 # These are candidate options only; actual permissibility must be verified.
 candidate_floors = [1, 2, 3, 4]
@@ -108,18 +112,18 @@ def room_plan(floor_idx, width, length, btype):
     # floor-specific labels
     if floor_idx == 0:
         labels = [
-            (width*.24, length*.76, f"BEDROOM 1\n{width*.48:.2f} × {length*.24:.2f} m"),
-            (width*.57, length*.76, f"KITCHEN\n{width*.18:.2f} × {length*.24:.2f} m"),
-            (width*.83, length*.76, f"BATH / WC\n{width*.34:.2f} × {length*.24:.2f} m"),
+            (width*.24, length*.76, f"BEDROOM 1\n{width*.48:.2f} × {length*.48:.2f} m"),
+            (width*.57, length*.76, f"KITCHEN\n{width*.18:.2f} × {length*.48:.2f} m"),
+            (width*.83, length*.76, f"BATH / WC\n{width*.34:.2f} × {length*.48:.2f} m"),
             (width*.17, length*.25, f"LIVING\n{width*.34:.2f} × {length*.52:.2f} m"),
             (width*.51, length*.25, f"DINING\n{width*.34:.2f} × {length*.52:.2f} m"),
             (width*.84, length*.25, f"STAIR / UTILITY\n{width*.32:.2f} × {length*.52:.2f} m"),
         ]
     else:
         labels = [
-            (width*.24, length*.76, f"BEDROOM 2\n{width*.48:.2f} × {length*.24:.2f} m"),
-            (width*.57, length*.76, f"BEDROOM 3\n{width*.18:.2f} × {length*.24:.2f} m"),
-            (width*.83, length*.76, f"BATH / WC\n{width*.34:.2f} × {length*.24:.2f} m"),
+            (width*.24, length*.76, f"BEDROOM 2\n{width*.48:.2f} × {length*.48:.2f} m"),
+            (width*.57, length*.76, f"BEDROOM 3\n{width*.18:.2f} × {length*.48:.2f} m"),
+            (width*.83, length*.76, f"BATH / WC\n{width*.34:.2f} × {length*.48:.2f} m"),
             (width*.17, length*.25, f"FAMILY LOUNGE\n{width*.34:.2f} × {length*.52:.2f} m"),
             (width*.51, length*.25, f"MASTER BEDROOM\n{width*.34:.2f} × {length*.52:.2f} m"),
             (width*.84, length*.25, f"STAIR / BALCONY\n{width*.32:.2f} × {length*.52:.2f} m"),
@@ -152,7 +156,7 @@ def room_plan(floor_idx, width, length, btype):
     return fig
 
 st.subheader("2. Architectural plans — every selected floor")
-st.caption("Draft-style concept plans now show room labels with estimated dimensions, overall dimensions, door-swing symbols and window markers. These are still not permit-ready architectural drawings: wall thicknesses, exact opening schedules, services, ventilation/daylight and local rules need professional coordination.")
+st.caption("Room dimensions now match the partition-zone heights and the building footprint used by the structural concept grid. This remains a schematic concept plan: internal door openings, wall thicknesses, service coordination, ventilation/daylight and local rules still need architectural development.")
 tabs = st.tabs([("Ground floor" if i == 0 else f"Floor {i+1}") for i in range(chosen_floors)])
 for i, tab in enumerate(tabs):
     with tab:
