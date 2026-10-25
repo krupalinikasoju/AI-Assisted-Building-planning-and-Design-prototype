@@ -189,6 +189,43 @@ def room_plan(floor_idx, width, length, btype):
 
     boxes = [room_box(*z) for z in zones]
 
+    # Architectural opening layer: mask selected partition segments, then draw
+    # door leaves and swing arcs. This is still a concept layout, but openings
+    # are now represented graphically instead of leaving every partition solid.
+    def internal_door_vertical(x, y, width, hinge="bottom"):
+        y0, y1 = y - width / 2, y + width / 2
+        ax.plot([x, x], [y0, y1], color="white", lw=3.2, zorder=8)
+        if hinge == "bottom":
+            ax.plot([x, x + width], [y0, y0], color=door, lw=.85, zorder=9)
+            ax.add_patch(Arc((x, y0), 2*width, 2*width, theta1=0, theta2=90, ec=door, lw=.7, zorder=9))
+        else:
+            ax.plot([x, x + width], [y1, y1], color=door, lw=.85, zorder=9)
+            ax.add_patch(Arc((x, y1), 2*width, 2*width, theta1=270, theta2=360, ec=door, lw=.7, zorder=9))
+
+    def internal_door_horizontal(x, y, width, hinge="left"):
+        x0, x1 = x - width / 2, x + width / 2
+        ax.plot([x0, x1], [y, y], color="white", lw=3.2, zorder=8)
+        if hinge == "left":
+            ax.plot([x0, x0], [y, y + width], color=door, lw=.85, zorder=9)
+            ax.add_patch(Arc((x0, y), 2*width, 2*width, theta1=0, theta2=90, ec=door, lw=.7, zorder=9))
+        else:
+            ax.plot([x1, x1], [y, y + width], color=door, lw=.85, zorder=9)
+            ax.add_patch(Arc((x1, y), 2*width, 2*width, theta1=90, theta2=180, ec=door, lw=.7, zorder=9))
+
+    door_w = min(.85, max(.70, w*.075))
+    # The fixed zoning uses these partition axes; door locations are centered
+    # in room-to-room connections and avoid the outside entrance opening.
+    internal_door_vertical(w*.43, L*.28, door_w, "bottom")
+    internal_door_vertical(w*.43, L*.76, door_w, "bottom")
+    internal_door_vertical(w*.72, L*.40, door_w, "bottom")
+    internal_door_vertical(w*.72, L*.64, min(.72, door_w), "bottom")
+    internal_door_horizontal(w*.20, L*.52, door_w, "left")
+    internal_door_horizontal(w*.58, L*.52, door_w, "left")
+    internal_door_horizontal(w*.58, L*.56 if floor_idx == 1 else L*.57, door_w, "left")
+
+    # Small room tags improve drawing readability without replacing dimension lines.
+    ax.text(w*.015, L*.985, "EXT. WALL", fontsize=5.5, color=light, va="top")
+
     def bed(cx, cy, bw, bh):
         ax.add_patch(Rectangle((cx-bw/2, cy-bh/2), bw, bh, fill=False, ec=furn, lw=.8))
         ax.plot([cx-bw/2, cx+bw/2], [cy+bh*.20, cy+bh*.20], color=furn, lw=.6)
@@ -289,6 +326,15 @@ for i, tab in enumerate(tabs):
             file_name=f"architectural_floor_{i+1}.png",
             mime="image/png",
             key=f"download_plan_{i}"
+        )
+        pdf_buffer = BytesIO()
+        fig.savefig(pdf_buffer, format="pdf", bbox_inches="tight")
+        st.download_button(
+            f"Download floor {i+1} plan (PDF)",
+            data=pdf_buffer.getvalue(),
+            file_name=f"architectural_floor_{i+1}.pdf",
+            mime="application/pdf",
+            key=f"download_plan_pdf_{i}"
         )
         plt.close(fig)
 
