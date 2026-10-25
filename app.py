@@ -512,15 +512,7 @@ if member_kind == "Beam":
     volume = bw*bd*span
     steel_kg = volume*steel_factor_beam
     fig_sec = draw_section("Beam", bw, bd, selected_id)
-    fig1, ax1 = plt.subplots(figsize=(7, 2.5))
-    x = np.linspace(0, span, 100)
-    V = line_load*span/2 - line_load*x
-    ax1.plot(x, V, color="#2563eb"); ax1.fill_between(x, V, 0, alpha=.15, color="#60a5fa")
-    ax1.axhline(0, color="black", lw=.8); ax1.set_title(f"{selected_id} — Shear Force Diagram"); ax1.set_xlabel("Span (m)"); ax1.set_ylabel("Shear (kN)"); ax1.grid(alpha=.2); fig1.tight_layout()
-    fig2, ax2 = plt.subplots(figsize=(7, 2.5))
-    M = line_load*x*(span-x)/2
-    ax2.plot(x, M, color="#059669"); ax2.fill_between(x, M, 0, alpha=.15, color="#34d399")
-    ax2.axhline(0, color="black", lw=.8); ax2.set_title(f"{selected_id} — Bending Moment Diagram"); ax2.set_xlabel("Span (m)"); ax2.set_ylabel("Moment (kN·m)"); ax2.grid(alpha=.2); fig2.tight_layout()
+    # SFD/BMD plots are shown in Section 6 (Structural analysis), not here.
     result_rows = [
         ["Member", selected_id], ["Span", f"{span:.2f} m"], ["Trial section", f"{bw*1000:.0f} × {bd*1000:.0f} mm"],
         ["Illustrative line load", f"{line_load:.2f} kN/m"], ["Reaction at each support", f"{reaction:.2f} kN"],
@@ -580,9 +572,6 @@ with left:
 with right:
     st.markdown(f"### {member_kind} {selected_id} — estimate")
     st.dataframe(pd.DataFrame(result_rows, columns=["Parameter", "Result"]), use_container_width=True, hide_index=True)
-if member_kind == "Beam":
-    st.pyplot(fig1, use_container_width=True); st.pyplot(fig2, use_container_width=True)
-    plt.close(fig1); plt.close(fig2)
 st.caption("Member sections and reinforcement markers are schematic. The app does not perform complete code-based RC design or prove load capacity. Steel values are quantity allowances, not reinforcement detailing.")
 
 
