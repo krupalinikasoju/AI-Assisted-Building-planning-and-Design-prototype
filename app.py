@@ -102,10 +102,10 @@ def room_plan(floor_idx, width, length, btype):
     part = min(0.14, w * 0.014, L * 0.014)
     ink, light, furn, win, door = "#111827", "#374151", "#64748b", "#0284c7", "#7c3aed"
 
-    # Room zones use normalized coordinates (x0, y0, x1, y1), so all dimensions
-    # scale with the chosen footprint. Ground and upper floors have distinct zoning.
-    if floor_idx == 0:
-        zones = [
+    # Each storey has its own zoning while the perimeter and stair bay remain aligned.
+    # These are schematic normalized layouts, not automatically validated construction plans.
+    floor_zones = {
+        0: [
             (0.00, 0.52, 0.43, 1.00, "BEDROOM 1"),
             (0.43, 0.52, 0.72, 1.00, "KITCHEN"),
             (0.72, 0.72, 1.00, 1.00, "BATH / WC"),
@@ -113,19 +113,37 @@ def room_plan(floor_idx, width, length, btype):
             (0.00, 0.00, 0.42, 0.52, "LIVING"),
             (0.42, 0.00, 0.72, 0.52, "DINING"),
             (0.72, 0.00, 1.00, 0.52, "STAIRCASE"),
-        ]
-        title = "GROUND FLOOR PLAN"
-    else:
-        zones = [
-            (0.00, 0.54, 0.42, 1.00, "BEDROOM 2"),
-            (0.42, 0.54, 0.72, 1.00, "BEDROOM 3"),
-            (0.72, 0.73, 1.00, 1.00, "BATH / WC"),
-            (0.72, 0.54, 1.00, 0.73, "DRESS / STORE"),
-            (0.00, 0.00, 0.43, 0.54, "FAMILY LOUNGE"),
-            (0.43, 0.00, 0.72, 0.54, "MASTER BEDROOM"),
-            (0.72, 0.00, 1.00, 0.54, "STAIR / LANDING"),
-        ]
-        title = f"UPPER FLOOR {floor_idx + 1} PLAN"
+        ],
+        1: [
+            (0.00, 0.56, 0.42, 1.00, "BEDROOM 2"),
+            (0.42, 0.56, 0.72, 1.00, "BEDROOM 3"),
+            (0.72, 0.75, 1.00, 1.00, "BATH / WC"),
+            (0.72, 0.56, 1.00, 0.75, "DRESS / STORE"),
+            (0.00, 0.00, 0.43, 0.56, "FAMILY LOUNGE"),
+            (0.43, 0.00, 0.72, 0.56, "MASTER BEDROOM"),
+            (0.72, 0.00, 1.00, 0.56, "STAIR / LANDING"),
+        ],
+        2: [
+            (0.00, 0.57, 0.42, 1.00, "BEDROOM 4"),
+            (0.42, 0.57, 0.72, 1.00, "STUDY"),
+            (0.72, 0.76, 1.00, 1.00, "BATH / WC"),
+            (0.72, 0.57, 1.00, 0.76, "LINEN / STORE"),
+            (0.00, 0.00, 0.43, 0.57, "MEDIA LOUNGE"),
+            (0.43, 0.00, 0.72, 0.57, "TERRACE ACCESS"),
+            (0.72, 0.00, 1.00, 0.57, "STAIR / LANDING"),
+        ],
+        3: [
+            (0.00, 0.55, 0.42, 1.00, "GUEST BEDROOM"),
+            (0.42, 0.55, 0.72, 1.00, "HOME OFFICE"),
+            (0.72, 0.75, 1.00, 1.00, "BATH / WC"),
+            (0.72, 0.55, 1.00, 0.75, "STORE"),
+            (0.00, 0.00, 0.43, 0.55, "RECREATION ROOM"),
+            (0.43, 0.00, 0.72, 0.55, "OPEN TERRACE"),
+            (0.72, 0.00, 1.00, 0.55, "STAIR / LANDING"),
+        ],
+    }
+    zones = floor_zones[min(floor_idx, 3)]
+    title = ["GROUND FLOOR PLAN", "FIRST FLOOR PLAN", "SECOND FLOOR PLAN", "THIRD FLOOR PLAN"][min(floor_idx, 3)]
 
     # For non-residential types, retain the footprint but assign functional room names.
     if btype == "Commercial":
@@ -189,10 +207,14 @@ def room_plan(floor_idx, width, length, btype):
         liv = boxes[4]; sofa((liv[0]+liv[2])/2, (liv[1]+liv[3])/2, min((liv[2]-liv[0])*.62,1.7), .48)
         din = boxes[5]; ax.add_patch(Rectangle(((din[0]+din[2])/2-.32,(din[1]+din[3])/2-.38),.64,.76,fill=False,ec=furn,lw=.7))
     else:
-        for idx in [0,1,5]:
-            q=boxes[idx]
-            bed((q[0]+q[2])/2,(q[1]+q[3])/2,min((q[2]-q[0])*.48,1.55),min((q[3]-q[1])*.42,1.85))
-        lounge=boxes[4]; sofa((lounge[0]+lounge[2])/2,(lounge[1]+lounge[3])/2,min((lounge[2]-lounge[0])*.60,1.7),.48)
+        # Bedrooms receive bed symbols; lounge/recreation zones get seating.
+        for idx in ([0, 1, 5] if floor_idx == 1 else [0]):
+            q = boxes[idx]
+            bed((q[0]+q[2])/2, (q[1]+q[3])/2,
+                min((q[2]-q[0])*.48, 1.55), min((q[3]-q[1])*.42, 1.85))
+        lounge = boxes[4]
+        sofa((lounge[0]+lounge[2])/2, (lounge[1]+lounge[3])/2,
+             min((lounge[2]-lounge[0])*.60, 1.7), .48)
 
     # Bathroom fixtures on both floors where the bath zone exists.
     bath = boxes[2]
@@ -255,7 +277,7 @@ def room_plan(floor_idx, width, length, btype):
     return fig
 
 st.subheader("2. Architectural plans — every selected floor")
-st.caption("CAD-style concept plans show double-line wall thickness, room zoning, door swings, windows, basic furniture/fixtures, stair treads, chained dimensions and a north arrow. These are still concept drawings: surveyed plot geometry, exact room requirements, opening schedules, services, ventilation/daylight and local rules need architectural coordination.")
+st.caption("Each storey has a distinct schematic room program with aligned stair bay. CAD-style concept plans show double-line wall thickness, room zoning, door swings, windows, basic furniture/fixtures, stair treads, chained dimensions and a north arrow. These are still concept drawings: surveyed plot geometry, exact room requirements, opening schedules, services, ventilation/daylight and local rules need architectural coordination.")
 tabs = st.tabs([("Ground floor" if i == 0 else f"Floor {i+1}") for i in range(chosen_floors)])
 for i, tab in enumerate(tabs):
     with tab:
