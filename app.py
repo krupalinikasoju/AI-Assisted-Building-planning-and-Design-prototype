@@ -40,15 +40,11 @@ plot_length = plot_area / plot_width
 # Placeholder coverage and setbacks: not locally verified.
 coverage_assumption = 0.60
 setback_assumption = 1.0
-# Keep the footprint dimensions and area consistent. The earlier version calculated
-# floor_plate separately from approx_w/approx_l, so drawings and estimates could disagree.
-coverage_width = plot_width * math.sqrt(coverage_assumption)
-coverage_length = plot_length * math.sqrt(coverage_assumption)
-usable_width = max(1.0, plot_width - 2 * setback_assumption)
-usable_length = max(1.0, plot_length - 2 * setback_assumption)
-approx_w = min(coverage_width, usable_width)
-approx_l = min(coverage_length, usable_length)
-floor_plate = approx_w * approx_l
+footprint = plot_area * coverage_assumption
+approx_w = plot_width * math.sqrt(coverage_assumption)
+approx_l = plot_length * math.sqrt(coverage_assumption)
+floor_plate = min(footprint, max(20.0, (plot_width - 2*setback_assumption)*(plot_length - 2*setback_assumption)))
+floor_plate = min(floor_plate, footprint)
 
 # These are candidate options only; actual permissibility must be verified.
 candidate_floors = [1, 2, 3, 4]
@@ -112,18 +108,18 @@ def room_plan(floor_idx, width, length, btype):
     # floor-specific labels
     if floor_idx == 0:
         labels = [
-            (width*.24, length*.76, f"BEDROOM 1\n{width*.48:.2f} × {length*.48:.2f} m"),
-            (width*.57, length*.76, f"KITCHEN\n{width*.18:.2f} × {length*.48:.2f} m"),
-            (width*.83, length*.76, f"BATH / WC\n{width*.34:.2f} × {length*.48:.2f} m"),
+            (width*.24, length*.76, f"BEDROOM 1\n{width*.48:.2f} × {length*.24:.2f} m"),
+            (width*.57, length*.76, f"KITCHEN\n{width*.18:.2f} × {length*.24:.2f} m"),
+            (width*.83, length*.76, f"BATH / WC\n{width*.34:.2f} × {length*.24:.2f} m"),
             (width*.17, length*.25, f"LIVING\n{width*.34:.2f} × {length*.52:.2f} m"),
             (width*.51, length*.25, f"DINING\n{width*.34:.2f} × {length*.52:.2f} m"),
             (width*.84, length*.25, f"STAIR / UTILITY\n{width*.32:.2f} × {length*.52:.2f} m"),
         ]
     else:
         labels = [
-            (width*.24, length*.76, f"BEDROOM 2\n{width*.48:.2f} × {length*.48:.2f} m"),
-            (width*.57, length*.76, f"BEDROOM 3\n{width*.18:.2f} × {length*.48:.2f} m"),
-            (width*.83, length*.76, f"BATH / WC\n{width*.34:.2f} × {length*.48:.2f} m"),
+            (width*.24, length*.76, f"BEDROOM 2\n{width*.48:.2f} × {length*.24:.2f} m"),
+            (width*.57, length*.76, f"BEDROOM 3\n{width*.18:.2f} × {length*.24:.2f} m"),
+            (width*.83, length*.76, f"BATH / WC\n{width*.34:.2f} × {length*.24:.2f} m"),
             (width*.17, length*.25, f"FAMILY LOUNGE\n{width*.34:.2f} × {length*.52:.2f} m"),
             (width*.51, length*.25, f"MASTER BEDROOM\n{width*.34:.2f} × {length*.52:.2f} m"),
             (width*.84, length*.25, f"STAIR / BALCONY\n{width*.32:.2f} × {length*.52:.2f} m"),
@@ -156,7 +152,7 @@ def room_plan(floor_idx, width, length, btype):
     return fig
 
 st.subheader("2. Architectural plans — every selected floor")
-st.caption("Room dimensions now match the partition-zone heights and the building footprint used by the structural concept grid. This remains a schematic concept plan: internal door openings, wall thicknesses, service coordination, ventilation/daylight and local rules still need architectural development.")
+st.caption("Draft-style concept plans now show room labels with estimated dimensions, overall dimensions, door-swing symbols and window markers. These are still not permit-ready architectural drawings: wall thicknesses, exact opening schedules, services, ventilation/daylight and local rules need professional coordination.")
 tabs = st.tabs([("Ground floor" if i == 0 else f"Floor {i+1}") for i in range(chosen_floors)])
 for i, tab in enumerate(tabs):
     with tab:
@@ -172,8 +168,6 @@ for i, tab in enumerate(tabs):
         plt.close(fig)
 
 # ---------- coordinated concept structural grid ----------
-st.subheader("3. RCC structural layout")
-st.caption("C = column, B = beam, S = slab panel, F = footing. This is a coordinated concept grid, not an engineered framing plan.")
 grid_x = [0, approx_w/3, 2*approx_w/3, approx_w]
 grid_y = [0, approx_l/2, approx_l]
 columns = []
@@ -194,172 +188,6 @@ for j in range(len(grid_y)-1):
         slabs.append({"id": f"S{j*(len(grid_x)-1)+i+1}", "x1": grid_x[i], "y1": grid_y[j], "x2": grid_x[i+1], "y2": grid_y[j+1]})
 for i, c in enumerate(columns):
     footings.append({"id": f"F{i+1}", "column": c["id"], "x": c["x"], "y": c["y"]})
-
-fig, ax = plt.subplots(figsize=(8.5, 6.5))
-ax.set_aspect("equal")
-for b in beams:
-    ax.plot([b["x1"], b["x2"]], [b["y1"], b["y2"]], color="#2563eb", lw=2)
-for s in slabs:
-    ax.add_patch(Rectangle((s["x1"], s["y1"]), s["x2"]-s["x1"], s["y2"]-s["y1"], facecolor="#dbeafe", edgecolor="none", alpha=.7))
-for b in beams:
-    ax.plot([b["x1"], b["x2"]], [b["y1"], b["y2"]], color="#2563eb", lw=2)
-for c in columns:
-    ax.scatter(c["x"], c["y"], marker="s", s=85, color="#0f172a", zorder=4)
-    ax.text(c["x"]+.08, c["y"]+.10, c["id"], fontsize=8, color="#0f172a")
-for s in slabs:
-    ax.text((s["x1"]+s["x2"])/2, (s["y1"]+s["y2"])/2, s["id"], ha="center", va="center", fontsize=9, color="#1d4ed8")
-ax.set_xlim(-.6, approx_w+.7); ax.set_ylim(-.6, approx_l+.7)
-ax.set_xlabel("Width (m)"); ax.set_ylabel("Length (m)")
-ax.set_title("Conceptual beam / column / slab grid")
-ax.grid(alpha=.15)
-fig.tight_layout()
-st.pyplot(fig, use_container_width=True)
-st.download_button("Download RCC concept layout (PNG)", data=(lambda b: (fig.savefig(b, format="png", dpi=180, bbox_inches="tight"), b.getvalue())[1])(BytesIO()), file_name="rcc_concept_layout.png", mime="image/png")
-plt.close(fig)
-
-# Separate engineering-style plan sheets using the same grid and member IDs.
-def dimension_line(ax, x1, y1, x2, y2, label, offset=0.25):
-    if abs(y2-y1) < 1e-8:
-        yy = y1 + offset
-        ax.annotate('', xy=(x1, yy), xytext=(x2, yy), arrowprops=dict(arrowstyle='<->', lw=.8, color='black'))
-        ax.text((x1+x2)/2, yy+0.06, label, ha='center', va='bottom', fontsize=8)
-    else:
-        xx = x1 - offset
-        ax.annotate('', xy=(xx, y1), xytext=(xx, y2), arrowprops=dict(arrowstyle='<->', lw=.8, color='black'))
-        ax.text(xx-.06, (y1+y2)/2, label, ha='right', va='center', rotation=90, fontsize=8)
-
-def structural_sheet(sheet_type):
-    fig, ax = plt.subplots(figsize=(8.5, 7.0))
-    ax.set_aspect('equal')
-    ax.set_xlim(-1.7, approx_w+1.0)
-    ax.set_ylim(-1.2, approx_l+1.5)
-    ax.axis('off')
-    # dimensioned grid lines
-    for i, xval in enumerate(grid_x):
-        ax.plot([xval, xval], [0, approx_l], color='#9ca3af', lw=.7, ls='--', zorder=0)
-        ax.text(xval, -0.28, chr(65+i), ha='center', va='top', fontsize=9, fontweight='bold')
-    for j, yval in enumerate(grid_y):
-        ax.plot([0, approx_w], [yval, yval], color='#9ca3af', lw=.7, ls='--', zorder=0)
-        ax.text(-.28, yval, str(j+1), ha='right', va='center', fontsize=9, fontweight='bold')
-    if sheet_type == 'Column layout':
-        for c in columns:
-            ax.add_patch(Rectangle((c['x']-.12, c['y']-.12), .24, .24, fill=False, lw=1.8, ec='black'))
-            ax.text(c['x']+.15, c['y']+.12, c['id'], fontsize=8, ha='left', va='bottom')
-        title = 'COLUMN SETTING-OUT PLAN'
-        note = 'Schematic column positions; section sizes require design verification.'
-    elif sheet_type == 'Beam layout':
-        for b in beams:
-            ax.plot([b['x1'], b['x2']], [b['y1'], b['y2']], color='black', lw=2.2)
-            ax.text((b['x1']+b['x2'])/2, (b['y1']+b['y2'])/2+.12, b['id'], fontsize=7.5, ha='center', va='bottom', backgroundcolor='white')
-        for c in columns:
-            ax.add_patch(Rectangle((c['x']-.10, c['y']-.10), .20, .20, fill=False, lw=1.3, ec='black'))
-        title = 'BEAM FRAMING PLAN'
-        note = 'Beam IDs match the member selector; preliminary framing only.'
-    elif sheet_type == 'Slab layout':
-        for sl in slabs:
-            ax.add_patch(Rectangle((sl['x1'], sl['y1']), sl['x2']-sl['x1'], sl['y2']-sl['y1'], fill=False, lw=1.5, ec='black'))
-            cx=(sl['x1']+sl['x2'])/2; cy=(sl['y1']+sl['y2'])/2
-            ax.text(cx, cy, f"{sl['id']}\n{sl['x2']-sl['x1']:.2f} × {sl['y2']-sl['y1']:.2f} m", ha='center', va='center', fontsize=8)
-        title = 'SLAB PANEL / EDGE PLAN'
-        note = 'Panel labels and dimensions; thickness and reinforcement need design.'
-    else:
-        for f in footings:
-            ax.add_patch(Rectangle((f['x']-.45, f['y']-.45), .90, .90, fill=False, lw=1.5, ec='black'))
-            ax.text(f['x'], f['y'], f['id'], ha='center', va='center', fontsize=7.5)
-        title = 'ISOLATED FOOTING SETTING-OUT PLAN'
-        note = 'Footing squares are illustrative placeholders, not sized foundations.'
-    for i in range(len(grid_x)-1):
-        dimension_line(ax, grid_x[i], 0, grid_x[i+1], 0, f'{grid_x[i+1]-grid_x[i]:.2f} m', offset=-.55)
-    for j in range(len(grid_y)-1):
-        dimension_line(ax, 0, grid_y[j], 0, grid_y[j+1], f'{grid_y[j+1]-grid_y[j]:.2f} m', offset=.65)
-    ax.set_title(title, fontsize=12, fontweight='bold', pad=15)
-    ax.text(0, approx_l+.45, note, fontsize=8, ha='left', va='center')
-    fig.tight_layout()
-    return fig
-
-st.markdown('#### Separate coordinated RCC drawing sheets')
-st.caption('Each sheet uses the same grid coordinates as the combined layout. These are concept drawings, not construction/permit drawings.')
-sheet_tabs = st.tabs(['Column plan', 'Beam plan', 'Slab plan', 'Foundation plan'])
-for sheet_tab, sheet_name, sheet_file in zip(sheet_tabs, ['Column layout','Beam layout','Slab layout','Foundation layout'], ['column_plan.png','beam_plan.png','slab_plan.png','foundation_plan.png']):
-    with sheet_tab:
-        sheet_fig = structural_sheet(sheet_name)
-        st.pyplot(sheet_fig, use_container_width=True)
-        sheet_buf = BytesIO()
-        sheet_fig.savefig(sheet_buf, format='png', dpi=200, bbox_inches='tight')
-        st.download_button(f'Download {sheet_name.lower()} (PNG)', data=sheet_buf.getvalue(), file_name=sheet_file, mime='image/png', key=f'dl_{sheet_file}')
-        plt.close(sheet_fig)
-
-st.markdown("#### RCC detail drawings — beam and foundation")
-st.caption("These detail sketches are always shown here as well as in the member selector. They are schematic examples, not reinforcement shop drawings.")
-def draw_beam_detail():
-    fig, axs = plt.subplots(1, 2, figsize=(10, 3.4))
-    ax = axs[0]
-    L, D = 5.0, 0.45
-    ax.add_patch(Rectangle((0, 0), L, D, fill=False, lw=2, ec="#334155"))
-    ax.plot([0.12, L-0.12], [0.10, 0.10], color="#dc2626", lw=2)
-    ax.plot([0.12, L-0.12], [D-0.10, D-0.10], color="#dc2626", lw=2)
-    for x in np.linspace(.18, L-.18, 17):
-        ax.plot([x, x], [.07, D-.07], color="#64748b", lw=.7)
-    ax.annotate("", xy=(0, -.15), xytext=(L, -.15), arrowprops=dict(arrowstyle="<->"))
-    ax.text(L/2, -.21, "Illustrative span = 5.00 m", ha="center", va="top", fontsize=8)
-    ax.set_title("Beam B1 — longitudinal elevation")
-    ax.set_xlim(-.2, L+.2); ax.set_ylim(-.35, .75); ax.axis("off")
-    ax = axs[1]
-    bw, bd = .25, .45
-    ax.add_patch(Rectangle((0, 0), bw, bd, fill=False, lw=2, ec="#334155"))
-    for xx in [.045, bw-.045]:
-        for yy in [.045, bd-.045]: ax.scatter(xx, yy, color="#dc2626", s=28)
-    ax.add_patch(Rectangle((.035, .035), bw-.07, bd-.07, fill=False, ls="--", lw=1, ec="#64748b"))
-    ax.annotate("", xy=(0, -.08), xytext=(bw, -.08), arrowprops=dict(arrowstyle="<->"))
-    ax.text(bw/2, -.12, "250 mm", ha="center", va="top", fontsize=8)
-    ax.annotate("", xy=(-.07, 0), xytext=(-.07, bd), arrowprops=dict(arrowstyle="<->"))
-    ax.text(-.10, bd/2, "450 mm", rotation=90, ha="center", va="center", fontsize=8)
-    ax.set_title("Beam B1 — cross-section")
-    ax.set_xlim(-.2, .4); ax.set_ylim(-.2, .6); ax.set_aspect("equal"); ax.axis("off")
-    fig.tight_layout(); return fig
-
-def draw_foundation_detail():
-    fig, axs = plt.subplots(1, 2, figsize=(10, 3.4))
-    ax = axs[0]
-    ax.add_patch(Rectangle((0, 0), 1.5, 1.5, fill=False, lw=2, ec="#15803d"))
-    ax.add_patch(Rectangle((.60, .60), .30, .30, fill=False, lw=2, ec="#334155"))
-    for x in np.linspace(.12, 1.38, 8):
-        for y in np.linspace(.12, 1.38, 8): ax.scatter(x, y, s=5, color="#dc2626")
-    ax.annotate("", xy=(0, -.12), xytext=(1.5, -.12), arrowprops=dict(arrowstyle="<->"))
-    ax.text(.75, -.18, "1500 mm (trial)", ha="center", va="top", fontsize=8)
-    ax.set_title("F1 — footing plan")
-    ax.set_xlim(-.2, 1.8); ax.set_ylim(-.3, 1.8); ax.set_aspect("equal"); ax.axis("off")
-    ax = axs[1]
-    ax.add_patch(Rectangle((0, 0), 1.5, .45, fill=False, lw=2, ec="#15803d"))
-    ax.add_patch(Rectangle((.60, .45), .30, .45, fill=False, lw=2, ec="#334155"))
-    ax.plot([.08, 1.42], [.07, .07], color="#dc2626", lw=2)
-    for x in np.linspace(.12, 1.38, 8): ax.scatter(x, .07, s=18, color="#dc2626")
-    ax.annotate("", xy=(0, -.12), xytext=(1.5, -.12), arrowprops=dict(arrowstyle="<->"))
-    ax.text(.75, -.18, "1500 mm (trial)", ha="center", va="top", fontsize=8)
-    ax.annotate("", xy=(1.62, 0), xytext=(1.62, .45), arrowprops=dict(arrowstyle="<->"))
-    ax.text(1.68, .225, "450 mm", rotation=90, ha="center", va="center", fontsize=8)
-    ax.set_title("F1 — footing section")
-    ax.set_xlim(-.2, 2.0); ax.set_ylim(-.3, 1.1); ax.set_aspect("equal"); ax.axis("off")
-    fig.tight_layout(); return fig
-beam_detail_fig = draw_beam_detail()
-foundation_detail_fig = draw_foundation_detail()
-d1, d2 = st.columns(2)
-with d1:
-    st.pyplot(beam_detail_fig, use_container_width=True)
-    st.download_button("Download beam detail (PNG)", data=(lambda f: (lambda b: (f.savefig(b, format="png", dpi=180, bbox_inches="tight"), b.getvalue())[1])(BytesIO()))(beam_detail_fig), file_name="beam_B1_detail.png", mime="image/png")
-with d2:
-    st.pyplot(foundation_detail_fig, use_container_width=True)
-    st.download_button("Download foundation detail (PNG)", data=(lambda f: (lambda b: (f.savefig(b, format="png", dpi=180, bbox_inches="tight"), b.getvalue())[1])(BytesIO()))(foundation_detail_fig), file_name="foundation_F1_detail.png", mime="image/png")
-plt.close(beam_detail_fig); plt.close(foundation_detail_fig)
-
-col_a, col_b = st.columns(2)
-with col_a:
-    st.markdown("**Columns**")
-    st.dataframe(pd.DataFrame(columns)[["id", "x", "y", "floor"]], use_container_width=True, hide_index=True)
-with col_b:
-    st.markdown("**Beams**")
-    st.dataframe(pd.DataFrame(beams)[["id", "span", "orientation"]], use_container_width=True, hide_index=True)
-
 
 # ---------- dedicated load analysis and structural analysis sections ----------
 st.subheader("4. Load analysis")
@@ -634,23 +462,8 @@ m2.metric("Labour allowance (25%)", f"₹{labour:,.0f}")
 m3.metric("Indicative total incl. 5% contingency", f"₹{grand_total:,.0f}")
 st.caption("Rates are editable illustrative placeholders, not live supplier quotations. Cement/sand/aggregate conversions use a rough concrete allowance; verify mix design, wastage, local rates, taxes, transport and measured drawings before procurement. The table does not yet include doors/windows, plumbing, electrical, paint, waterproofing, excavation, or a measured reinforcement bar-bending schedule.")
 
-# ---------- design verification status ----------
-st.subheader("8. Design verification and missing-data register")
-verification_rows = [
-    ["Architectural dimensions", "Concept geometry only", "Surveyed plot shape and actual room/opening coordination are not supplied"],
-    ["Local planning / FAR / setbacks", "NOT VERIFIED", "Confirm current local authority rules for the exact site"],
-    ["Soil bearing / settlement", "NOT VERIFIED", "Requires site-specific geotechnical report"],
-    ["Gravity load take-down", "PARTIAL / EDUCATIONAL", "Area-load allowances; no complete member-by-member transfer model"],
-    ["Wind / earthquake design", "NOT IMPLEMENTED", "Requires verified site/building parameters and applicable code procedure"],
-    ["RCC strength and serviceability", "NOT VERIFIED", "No complete IS-code member capacity, detailing or load-combination engine"],
-    ["Reinforcement schedule", "QUANTITY ALLOWANCE ONLY", "No validated bar-bending schedule or anchorage/lap design"],
-    ["Material estimate", "PRELIMINARY ALLOWANCE", "Measured quantities and local current rates are still required"],
-]
-st.dataframe(pd.DataFrame(verification_rows, columns=["Check", "Status", "What is still needed"]), use_container_width=True, hide_index=True)
-st.warning("A green/approved structural status is intentionally not shown: the current prototype cannot certify a real building as safe or code-compliant.")
-
 # ---------- report ----------
-st.subheader("9. Final report")
+st.subheader("8. Final report")
 report = f"""BUILDWISE AI — CONCEPT REPORT
 
 Location: {location}
@@ -680,4 +493,4 @@ Important limitations:
 Indicative materials/work items: ₹{materials_total:,.0f}\nLabour allowance: ₹{labour:,.0f}\nContingency: ₹{contingency:,.0f}\nIndicative total cost: ₹{grand_total:,.0f}
 """
 st.download_button("⬇️ Download concept report (TXT)", data=report, file_name="buildwise_concept_report.txt", mime="text/plain")
-st.success("Workflow displayed: inputs → candidate floor options → concept floor plans → separate RCC drawing sheets → load ledger → beam analysis with SFD/BMD → member estimates → verification register → material estimate → report.")
+st.success("Workflow displayed: inputs → candidate floor options → concept floor plans → load ledger → beam analysis with SFD/BMD → member estimates → material estimate → report.")
