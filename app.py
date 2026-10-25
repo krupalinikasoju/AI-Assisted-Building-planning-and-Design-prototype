@@ -90,69 +90,184 @@ total_area = floor_plate * chosen_floors
 
 # ---------- architectural floor plan ----------
 def room_plan(floor_idx, width, length, btype):
-    """Make a dimensioned schematic floor plan. Room zoning is illustrative, not code-compliant design."""
-    fig, ax = plt.subplots(figsize=(7.2, 8.0))
+    """Draw a CAD-style dimensioned concept floor plan with wall thickness, openings, fixtures and furniture.
+
+    Geometry is generated from the estimated footprint; it is a concept drawing, not a
+    permit-ready or construction drawing. Exact CAD/DWG deliverables require surveyed dimensions.
+    """
+    from matplotlib.patches import Rectangle, Arc, Circle
+
+    # Use a consistent 3-column / 2-row plan grid with a central circulation strip.
+    # Coordinates are derived from the footprint, so all partitions and dimensions agree.
+    w = max(float(width), 5.0)
+    L = max(float(length), 5.0)
+    wall = min(0.18, w * 0.018, L * 0.018)  # illustrative exterior wall thickness
+    part = min(0.12, w * 0.012, L * 0.012)  # illustrative internal partition thickness
+    x1, x2 = w * 0.38, w * 0.70
+    y1 = L * 0.48
+
+    fig, ax = plt.subplots(figsize=(9, 9))
+    fig.patch.set_facecolor("white")
     ax.set_aspect("equal")
-    ax.set_xlim(-1.7, width+1.7)
-    ax.set_ylim(-2.0, length+2.0)
+    ax.set_xlim(-2.0, w + 1.6)
+    ax.set_ylim(-2.0, L + 2.2)
     ax.axis("off")
-    # outer walls
-    ax.add_patch(Rectangle((0, 0), width, length, fill=False, linewidth=3, edgecolor="#1e293b"))
-    # 3x2 zoning grid; top and bottom bands with unequal partitions
-    ymid = length * 0.52
-    ax.plot([0, width], [ymid, ymid], color="#334155", lw=2)
-    ax.plot([width*0.48, width*0.48], [ymid, length], color="#334155", lw=2)
-    ax.plot([width*0.66, width*0.66], [ymid, length], color="#334155", lw=2)
-    ax.plot([width*0.34, width*0.34], [0, ymid], color="#334155", lw=2)
-    ax.plot([width*0.68, width*0.68], [0, ymid], color="#334155", lw=2)
-    # floor-specific labels
+
+    ink = "#111827"
+    thin = "#374151"
+    dimc = "#374151"
+    furniture = "#64748b"
+    windowc = "#0284c7"
+    doorc = "#7c3aed"
+
+    # CAD-style double-line external walls.
+    ax.add_patch(Rectangle((0, 0), w, L, fill=False, edgecolor=ink, linewidth=2.2))
+    ax.add_patch(Rectangle((wall, wall), w - 2*wall, L - 2*wall,
+                           fill=False, edgecolor=ink, linewidth=0.9))
+
+    # Internal partitions. Small white gaps represent door openings; opening symbols added below.
+    # Horizontal partition split into three segments, leaving circulation/door gaps.
+    for xa, xb in [(wall, x1-w*.055), (x1+w*.055, x2-w*.055), (x2+w*.055, w-wall)]:
+        ax.plot([xa, xb], [y1, y1], color=ink, lw=1.5)
+        ax.plot([xa, xb], [y1+part, y1+part], color=thin, lw=0.55)
+    # Upper partitions, interrupted near room entries.
+    for x, gap_y in [(x1, L*.72), (x2, L*.72)]:
+        ax.plot([x, x], [y1+part, gap_y-.32], color=ink, lw=1.5)
+        ax.plot([x+part, x+part], [y1+part, gap_y-.32], color=thin, lw=0.55)
+        ax.plot([x, x], [gap_y+.32, L-wall], color=ink, lw=1.5)
+        ax.plot([x+part, x+part], [gap_y+.32, L-wall], color=thin, lw=0.55)
+    # Lower partitions, with door gaps.
+    for x, gap_y in [(x1, L*.23), (x2, L*.23)]:
+        ax.plot([x, x], [wall, gap_y-.32], color=ink, lw=1.5)
+        ax.plot([x+part, x+part], [wall, gap_y-.32], color=thin, lw=0.55)
+        ax.plot([x, x], [gap_y+.32, y1], color=ink, lw=1.5)
+        ax.plot([x+part, x+part], [gap_y+.32, y1], color=thin, lw=0.55)
+
+    # Helpers: room labels, furniture and opening symbols.
+    def room_label(xa, xb, ya, yb, name):
+        ax.text((xa+xb)/2, (ya+yb)/2, name, ha="center", va="center", fontsize=8.2,
+                color=ink, fontweight="bold", linespacing=1.35)
+
+    def bed(cx, cy, bw, bh):
+        ax.add_patch(Rectangle((cx-bw/2, cy-bh/2), bw, bh, fill=False, edgecolor=furniture, lw=.8))
+        ax.plot([cx-bw/2, cx+bw/2], [cy+bh*.20, cy+bh*.20], color=furniture, lw=.6)
+        ax.add_patch(Rectangle((cx-bw*.36, cy+bh*.22), bw*.30, bh*.18, fill=False, ec=furniture, lw=.55))
+        ax.add_patch(Rectangle((cx+bw*.06, cy+bh*.22), bw*.30, bh*.18, fill=False, ec=furniture, lw=.55))
+
+    def sofa(cx, cy, sw, sh):
+        ax.add_patch(Rectangle((cx-sw/2, cy-sh/2), sw, sh, fill=False, ec=furniture, lw=.8))
+        ax.plot([cx-sw/2, cx+sw/2], [cy, cy], color=furniture, lw=.6)
+        for sx in [cx-sw/2+sw*.33, cx+sw/2-sw*.33]:
+            ax.plot([sx, sx], [cy-sh/2, cy+sh/2], color=furniture, lw=.45)
+
+    def door_on_vertical(x, y, door_width=.72, opens_right=True):
+        # leaf and quarter-circle swing, conventionally shown in plan.
+        direction = 1 if opens_right else -1
+        ax.plot([x, x+direction*door_width], [y, y], color=doorc, lw=.8)
+        theta1, theta2 = (0, 90) if opens_right else (90, 180)
+        ax.add_patch(Arc((x, y), 2*door_width, 2*door_width, theta1=theta1, theta2=theta2,
+                         color=doorc, lw=.65))
+
+    def window_on_horizontal(xa, xb, y):
+        ax.plot([xa, xb], [y, y], color="white", lw=4.0, solid_capstyle="butt", zorder=5)
+        ax.plot([xa, xb], [y-wall*.25, y-wall*.25], color=windowc, lw=1.0, zorder=6)
+        ax.plot([xa, xb], [y+wall*.25, y+wall*.25], color=windowc, lw=1.0, zorder=6)
+
+    def window_on_vertical(x, ya, yb):
+        ax.plot([x, x], [ya, yb], color="white", lw=4.0, solid_capstyle="butt", zorder=5)
+        ax.plot([x-wall*.25, x-wall*.25], [ya, yb], color=windowc, lw=1.0, zorder=6)
+        ax.plot([x+wall*.25, x+wall*.25], [ya, yb], color=windowc, lw=1.0, zorder=6)
+
+    # Zone labels and simple fixture/furniture symbols. All room dimensions come from zone coordinates.
     if floor_idx == 0:
-        labels = [
-            (width*.24, length*.76, f"BEDROOM 1\n{width*.48:.2f} × {length*.24:.2f} m"),
-            (width*.57, length*.76, f"KITCHEN\n{width*.18:.2f} × {length*.24:.2f} m"),
-            (width*.83, length*.76, f"BATH / WC\n{width*.34:.2f} × {length*.24:.2f} m"),
-            (width*.17, length*.25, f"LIVING\n{width*.34:.2f} × {length*.52:.2f} m"),
-            (width*.51, length*.25, f"DINING\n{width*.34:.2f} × {length*.52:.2f} m"),
-            (width*.84, length*.25, f"STAIR / UTILITY\n{width*.32:.2f} × {length*.52:.2f} m"),
-        ]
+        names_top = ["BEDROOM 1", "KITCHEN", "BATH / WC"]
+        names_bottom = ["LIVING", "DINING", "STAIR / UTILITY"]
     else:
-        labels = [
-            (width*.24, length*.76, f"BEDROOM 2\n{width*.48:.2f} × {length*.24:.2f} m"),
-            (width*.57, length*.76, f"BEDROOM 3\n{width*.18:.2f} × {length*.24:.2f} m"),
-            (width*.83, length*.76, f"BATH / WC\n{width*.34:.2f} × {length*.24:.2f} m"),
-            (width*.17, length*.25, f"FAMILY LOUNGE\n{width*.34:.2f} × {length*.52:.2f} m"),
-            (width*.51, length*.25, f"MASTER BEDROOM\n{width*.34:.2f} × {length*.52:.2f} m"),
-            (width*.84, length*.25, f"STAIR / BALCONY\n{width*.32:.2f} × {length*.52:.2f} m"),
-        ]
-    for x, y, label in labels:
-        ax.text(x, y, label, ha="center", va="center", fontsize=9, color="#0f172a", wrap=True)
-    # Door openings, leaf and swing arc (drafting symbols; positions are concept-level)
-    for x in [width*.18, width*.50, width*.82]:
-        door_w = min(0.9, width*.10)
-        ax.plot([x-door_w/2, x+door_w/2], [0, 0], color="white", lw=7, solid_capstyle="butt", zorder=5)
-        ax.plot([x-door_w/2, x-door_w/2], [0, door_w], color="#7c3aed", lw=1.2, zorder=6)
-        ax.add_patch(Arc((x-door_w/2, 0), 2*door_w, 2*door_w, theta1=0, theta2=90, color="#7c3aed", lw=0.8, zorder=6))
-    # window symbols on outer walls
-    for y in [length*.25, length*.72]:
-        ax.plot([0, 0], [y-.35, y+.35], color="white", lw=5)
-        ax.plot([0, 0], [y-.35, y+.35], color="#0284c7", lw=2)
-        ax.plot([width, width], [y-.35, y+.35], color="white", lw=5)
-        ax.plot([width, width], [y-.35, y+.35], color="#0284c7", lw=2)
-    # dimensions
-    ax.annotate("", xy=(0, length+0.8), xytext=(width, length+0.8), arrowprops=dict(arrowstyle="<->", lw=1))
-    ax.text(width/2, length+1.0, f"{width:.2f} m", ha="center", fontsize=10)
-    ax.annotate("", xy=(-0.8, 0), xytext=(-0.8, length), arrowprops=dict(arrowstyle="<->", lw=1))
-    ax.text(-1.1, length/2, f"{length:.2f} m", rotation=90, ha="center", va="center", fontsize=10)
-    # drafting notes / north arrow
-    ax.annotate("N", xy=(width+0.75, length-0.25), xytext=(width+0.75, length-1.15),
-                arrowprops=dict(arrowstyle="-|>", lw=1.2, color="#0f172a"), ha="center", fontsize=10, fontweight="bold")
-    ax.text(0, -1.45, "Indicative wall lines • door swings • window markers • dimensions in metres", fontsize=7.5, color="#475569")
-    ax.set_title(f"{'GROUND FLOOR' if floor_idx == 0 else f'FLOOR {floor_idx+1}'} — DIMENSIONED CONCEPT PLAN", fontsize=12, pad=16)
+        names_top = ["BEDROOM 2", "BEDROOM 3", "BATH / WC"]
+        names_bottom = ["FAMILY LOUNGE", "MASTER BEDROOM", "STAIR / BALCONY"]
+    xs = [wall, x1, x2, w-wall]
+    # Top band uses a consistent label row; lower band follows the same vertical partition positions.
+    for j, name in enumerate(names_top):
+        room_label(xs[j], xs[j+1], y1+part, L-wall, f"{name}\n{xs[j+1]-xs[j]:.2f} × {L-wall-y1-part:.2f} m")
+    for j, name in enumerate(names_bottom):
+        room_label(xs[j], xs[j+1], wall, y1, f"{name}\n{xs[j+1]-xs[j]:.2f} × {y1-wall:.2f} m")
+
+    # Furniture symbols are intentionally schematic, scaled to fit each zone.
+    bed((wall+x1)/2, (y1+L-wall)/2, min((x1-wall)*.52, 1.65), min((L-wall-y1)*.48, 1.95))
+    # Kitchen counter + sink/cooktop symbols
+    ax.add_patch(Rectangle((x1+w*.035, L-wall-.42), max(.35, x2-x1-w*.07), .25, fill=False, ec=furniture, lw=.75))
+    ax.add_patch(Rectangle((x1+w*.05, L-wall-.38), .20, .15, fill=False, ec=furniture, lw=.55))
+    # Bath/WC symbols
+    bx = (x2+w-wall)/2; by = (y1+L-wall)/2
+    ax.add_patch(Rectangle((bx-.18, by+.25), .36, .28, fill=False, ec=furniture, lw=.65))
+    ax.add_patch(Circle((bx, by-.12), radius=.13, fill=False, ec=furniture, lw=.65))
+    sofa((wall+x1)/2, (wall+y1)/2, min((x1-wall)*.65, 1.8), .52)
+    # Dining table
+    ax.add_patch(Rectangle((x1+w*.04, L*.12), max(.45, (x2-x1)*.62), .65, fill=False, ec=furniture, lw=.75))
+    for cx in [x1+w*.08, x1+w*.04+(x2-x1)*.55]:
+        for cy in [L*.12-.10, L*.12+.75]:
+            ax.add_patch(Rectangle((cx-.09, cy-.08), .18, .16, fill=False, ec=furniture, lw=.55))
+    # Stair run in the right-bottom room: treads and direction arrow.
+    sx0, sx1 = x2+w*.04, w-wall-w*.04
+    sy0, sy1 = wall+L*.05, y1-L*.05
+    if sx1 > sx0 and sy1 > sy0:
+        ax.add_patch(Rectangle((sx0, sy0), sx1-sx0, sy1-sy0, fill=False, ec=furniture, lw=.75))
+        for k in range(1, 7):
+            yy = sy0 + (sy1-sy0)*k/7
+            ax.plot([sx0, sx1], [yy, yy], color=furniture, lw=.45)
+        ax.annotate("UP", xy=((sx0+sx1)/2, sy1-.1), xytext=((sx0+sx1)/2, sy0+.1),
+                    arrowprops=dict(arrowstyle="->", lw=.7, color=furniture), ha="center", va="center", fontsize=6.5, color=furniture)
+
+    # Main entrance opening on bottom exterior wall with swing arc.
+    entry_x = w*.18
+    entry_w = min(.95, w*.12)
+    ax.plot([entry_x-entry_w/2, entry_x+entry_w/2], [0, 0], color="white", lw=4.5, zorder=7)
+    ax.plot([entry_x-entry_w/2, entry_x-entry_w/2], [0, entry_w], color=doorc, lw=.85, zorder=8)
+    ax.add_patch(Arc((entry_x-entry_w/2, 0), 2*entry_w, 2*entry_w, theta1=0, theta2=90, color=doorc, lw=.7, zorder=8))
+    # Interior door leaves and arcs, plus windows in exterior walls.
+    for x, y in [(x1, y1-.70), (x2, y1-.70), (x1, y1+.70), (x2, y1+.70)]:
+        door_on_vertical(x, y, min(.62, L*.055), opens_right=(x == x1))
+    for yy in [L*.22, L*.73]:
+        window_on_vertical(0, yy-.42, yy+.42)
+        window_on_vertical(w, yy-.42, yy+.42)
+    window_on_horizontal(w*.28, w*.43, L)
+    window_on_horizontal(w*.45, w*.58, 0)
+
+    # Overall and chained dimensions, extension lines and dimension ticks.
+    def hdim(xa, xb, y, label, base_y):
+        ax.plot([xa, xa], [base_y, y], color=dimc, lw=.45)
+        ax.plot([xb, xb], [base_y, y], color=dimc, lw=.45)
+        ax.annotate("", xy=(xa, y), xytext=(xb, y), arrowprops=dict(arrowstyle="<->", lw=.65, color=dimc))
+        ax.text((xa+xb)/2, y+.10, label, ha="center", va="bottom", fontsize=7.2, color=dimc)
+    def vdim(ya, yb, x, label, base_x):
+        ax.plot([base_x, x], [ya, ya], color=dimc, lw=.45)
+        ax.plot([base_x, x], [yb, yb], color=dimc, lw=.45)
+        ax.annotate("", xy=(x, ya), xytext=(x, yb), arrowprops=dict(arrowstyle="<->", lw=.65, color=dimc))
+        ax.text(x-.10, (ya+yb)/2, label, rotation=90, ha="right", va="center", fontsize=7.2, color=dimc)
+    hdim(0, w, L+1.15, f"{w:.2f} m", L)
+    hdim(0, x1, L+.55, f"{x1:.2f}", L)
+    hdim(x1, x2, L+.55, f"{x2-x1:.2f}", L)
+    hdim(x2, w, L+.55, f"{w-x2:.2f}", L)
+    vdim(0, L, -1.15, f"{L:.2f} m", 0)
+    vdim(0, y1, -.55, f"{y1:.2f}", 0)
+    vdim(y1, L, -.55, f"{L-y1:.2f}", 0)
+
+    # North arrow, scale bar and drawing title block.
+    ax.annotate("N", xy=(w+.85, L-.25), xytext=(w+.85, L-1.0),
+                arrowprops=dict(arrowstyle="-|>", lw=1.0, color=ink), ha="center", fontsize=9, fontweight="bold")
+    bar_y = -1.15
+    bar_len = min(2.0, w*.35)
+    ax.plot([0, bar_len], [bar_y, bar_y], color=ink, lw=2)
+    ax.plot([0, 0], [bar_y-.07, bar_y+.07], color=ink, lw=.8)
+    ax.plot([bar_len, bar_len], [bar_y-.07, bar_y+.07], color=ink, lw=.8)
+    ax.text(bar_len/2, bar_y-.12, f"Scale bar: {bar_len:.1f} m", ha="center", va="top", fontsize=6.8, color=thin)
+    ax.text(w, -1.55, f"BUILDWISE AI  |  {'GROUND FLOOR' if floor_idx == 0 else f'FLOOR {floor_idx+1}'}  |  CONCEPT PLAN",
+            ha="right", va="center", fontsize=7.5, color=ink, fontweight="bold")
+    ax.set_title("ARCHITECTURAL FLOOR PLAN — DIMENSIONED CAD-STYLE CONCEPT", fontsize=11, pad=16, color=ink, fontweight="bold")
     fig.tight_layout()
     return fig
-
 st.subheader("2. Architectural plans — every selected floor")
-st.caption("Draft-style concept plans now show room labels with estimated dimensions, overall dimensions, door-swing symbols and window markers. These are still not permit-ready architectural drawings: wall thicknesses, exact opening schedules, services, ventilation/daylight and local rules need professional coordination.")
+st.caption("CAD-style concept plans show double-line wall thickness, room zoning, door swings, windows, basic furniture/fixtures, stair treads, chained dimensions and a north arrow. These are still concept drawings: surveyed plot geometry, exact room requirements, opening schedules, services, ventilation/daylight and local rules need architectural coordination.")
 tabs = st.tabs([("Ground floor" if i == 0 else f"Floor {i+1}") for i in range(chosen_floors)])
 for i, tab in enumerate(tabs):
     with tab:
