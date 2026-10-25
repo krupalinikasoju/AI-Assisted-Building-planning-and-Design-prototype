@@ -156,16 +156,18 @@ def room_plan(floor_idx, width, length, btype):
         names = ["BEDROOM", "KITCHEN", "BATH / WC", "UTILITY", "SHOP / LIVING", "DINING", "STAIRCASE"]
         zones = [(a,b,c,d,names[i]) for i,(a,b,c,d,_) in enumerate(zones)]
 
-    fig, ax = plt.subplots(figsize=(9, 9))
+    fig, ax = plt.subplots(figsize=(10, 10), dpi=150)
     fig.patch.set_facecolor("white")
     ax.set_aspect("equal")
-    ax.set_xlim(-2.0, w + 1.8)
-    ax.set_ylim(-2.2, L + 2.2)
+    ax.set_xlim(-2.15, w + 1.85)
+    ax.set_ylim(-2.35, L + 2.35)
     ax.axis("off")
 
     # Exterior walls are double-line. Each room zone gets a clear CAD partition outline.
-    ax.add_patch(Rectangle((0, 0), w, L, fill=False, ec=ink, lw=2.4))
-    ax.add_patch(Rectangle((wall, wall), w-2*wall, L-2*wall, fill=False, ec=ink, lw=0.9))
+    # Heavier exterior line, lighter inner face, and a subtle drawing frame
+    # create a clearer architectural-sheet hierarchy.
+    ax.add_patch(Rectangle((0, 0), w, L, fill=False, ec=ink, lw=2.8, zorder=3))
+    ax.add_patch(Rectangle((wall, wall), w-2*wall, L-2*wall, fill=False, ec=ink, lw=0.85, zorder=3))
 
     def room_box(x0, y0, x1, y1, name):
         xa, ya, xb, yb = x0*w, y0*L, x1*w, y1*L
@@ -183,8 +185,13 @@ def room_plan(floor_idx, width, length, btype):
             ax.plot([xa, xb], [yb, yb], color=ink, lw=1.35)
             ax.plot([xa, xb], [yb-part, yb-part], color=light, lw=0.5)
         rw, rh = xb-xa, yb-ya
-        ax.text((xa+xb)/2, (ya+yb)/2, f"{name}\n{rw:.2f} × {rh:.2f} m",
-                ha="center", va="center", fontsize=7.5, color=ink, fontweight="bold")
+        # Put room labels toward the upper part of each room so furniture symbols
+        # remain legible and do not sit underneath the text.
+        label_y = yb - max(0.28, rh * 0.16)
+        ax.text((xa+xb)/2, label_y, f"{name}\n{rw:.2f} × {rh:.2f} m",
+                ha="center", va="center", fontsize=7.0, color=ink, fontweight="bold",
+                bbox=dict(boxstyle="round,pad=0.18", facecolor="white", edgecolor="none", alpha=0.94),
+                zorder=10)
         return xa, ya, xb, yb
 
     boxes = [room_box(*z) for z in zones]
@@ -308,13 +315,17 @@ def room_plan(floor_idx, width, length, btype):
     bar=min(2.0,w*.30); ax.plot([0,bar],[-1.25,-1.25],color=ink,lw=2)
     ax.plot([0,0],[-1.32,-1.18],color=ink,lw=.7); ax.plot([bar,bar],[-1.32,-1.18],color=ink,lw=.7)
     ax.text(bar/2,-1.38,f"Scale bar {bar:.1f} m",ha="center",va="top",fontsize=6.5,color=light)
-    ax.text(w,-1.75,f"BUILDWISE AI  |  {title}  |  CONCEPT ONLY",ha="right",va="center",fontsize=7.2,color=ink,fontweight="bold")
-    ax.set_title(f"DIMENSIONED ARCHITECTURAL PLAN — {title}",fontsize=11,pad=15,color=ink,fontweight="bold")
-    fig.tight_layout()
+    # Compact drawing-sheet footer / title block.
+    ax.plot([0, w], [-1.72, -1.72], color=light, lw=0.65)
+    ax.text(0, -1.92, "BUILDWISE AI", ha="left", va="center", fontsize=8, color=ink, fontweight="bold")
+    ax.text(w, -1.92, f"{title}  |  DIMENSIONS IN METRES  |  CONCEPT DRAWING",
+            ha="right", va="center", fontsize=6.5, color=light, fontweight="bold")
+    ax.set_title(f"ARCHITECTURAL FLOOR PLAN — {title}", fontsize=11, pad=16, color=ink, fontweight="bold")
+    fig.tight_layout(pad=1.3)
     return fig
 
 st.subheader("2. Architectural plans — every selected floor")
-st.caption("Each storey has a distinct schematic room program with aligned stair bay. CAD-style concept plans show double-line wall thickness, room zoning, door swings, windows, basic furniture/fixtures, stair treads, chained dimensions and a north arrow. These are still concept drawings: surveyed plot geometry, exact room requirements, opening schedules, services, ventilation/daylight and local rules need architectural coordination.")
+st.caption("Improved architectural-sheet presentation: stronger wall hierarchy, clearer room labels separated from furniture, higher-resolution plans, dimension chains, window/door symbols, stair direction, north arrow and a drawing footer. These remain schematic concept plans; actual surveyed geometry, room requirements, openings, services, ventilation/daylight and local rules require architectural coordination.")
 tabs = st.tabs([("Ground floor" if i == 0 else f"Floor {i+1}") for i in range(chosen_floors)])
 for i, tab in enumerate(tabs):
     with tab:
