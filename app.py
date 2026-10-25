@@ -360,8 +360,63 @@ for j in range(len(grid_y)-1):
 for i, c in enumerate(columns):
     footings.append({"id": f"F{i+1}", "column": c["id"], "x": c["x"], "y": c["y"]})
 
+# ---------- RCC layout: conceptual beam/column/slab/foundation grid ----------
+st.subheader("3. RCC structural layout")
+st.caption("Conceptual RCC framing layout generated from the prototype grid. Select a storey to view beam, column and slab labels; switch to foundation layout to view footing positions. This is a schematic coordination diagram, not a construction drawing or verified structural design.")
+rcc_view = st.radio("RCC layout view", ["Floor framing layout", "Foundation layout"], horizontal=True, key="rcc_layout_view")
+rcc_floor = st.selectbox("Storey", ["All typical floors"] + ["Ground floor" if i == 0 else f"Floor {i+1}" for i in range(chosen_floors)], key="rcc_floor")
+fig_rcc, ax_rcc = plt.subplots(figsize=(10, 7))
+ax_rcc.set_aspect("equal")
+ax_rcc.set_facecolor("white")
+if rcc_view == "Floor framing layout":
+    # Slab panels
+    for sl in slabs:
+        ax_rcc.add_patch(Rectangle((sl["x1"], sl["y1"]), sl["x2"]-sl["x1"], sl["y2"]-sl["y1"], facecolor="#e0f2fe", edgecolor="none", alpha=0.8))
+        ax_rcc.text((sl["x1"]+sl["x2"])/2, (sl["y1"]+sl["y2"])/2, sl["id"], ha="center", va="center", fontsize=9, color="#075985", fontweight="bold")
+    # Beam centre lines and IDs
+    for b in beams:
+        ax_rcc.plot([b["x1"], b["x2"]], [b["y1"], b["y2"]], color="#2563eb", linewidth=2.2, zorder=3)
+        mx, my = (b["x1"]+b["x2"])/2, (b["y1"]+b["y2"])/2
+        ax_rcc.text(mx, my+0.12, b["id"], fontsize=7.5, color="#1d4ed8", ha="center", va="bottom")
+    # Column markers
+    for c in columns:
+        ax_rcc.add_patch(Rectangle((c["x"]-0.12, c["y"]-0.12), 0.24, 0.24, facecolor="#b91c1c", edgecolor="#7f1d1d", linewidth=0.8, zorder=5))
+        ax_rcc.text(c["x"]+0.16, c["y"]+0.15, c["id"], fontsize=7.5, color="#991b1b", fontweight="bold")
+    ax_rcc.set_title(f"RCC FLOOR FRAMING — {rcc_floor.upper()}", fontsize=12, fontweight="bold")
+    ax_rcc.set_xlabel("Grid dimension (m)")
+    ax_rcc.set_ylabel("Grid dimension (m)")
+    ax_rcc.legend(handles=[plt.Line2D([0],[0], color="#2563eb", lw=2, label="Beam centre line"), plt.Line2D([0],[0], marker="s", color="w", markerfacecolor="#b91c1c", markersize=8, label="Column"), Rectangle((0,0),1,1,facecolor="#e0f2fe", label="Slab panel")], loc="upper center", bbox_to_anchor=(0.5,-0.12), ncol=3, frameon=False)
+else:
+    for f in footings:
+        size = 0.65
+        ax_rcc.add_patch(Rectangle((f["x"]-size/2, f["y"]-size/2), size, size, facecolor="#fef3c7", edgecolor="#b45309", linewidth=1.6))
+        ax_rcc.add_patch(Rectangle((f["x"]-0.12, f["y"]-0.12), 0.24, 0.24, facecolor="#b91c1c", edgecolor="#7f1d1d", linewidth=0.8))
+        ax_rcc.text(f["x"], f["y"]+0.43, f["id"], fontsize=7.5, color="#92400e", ha="center", fontweight="bold")
+        ax_rcc.text(f["x"]+0.16, f["y"]-0.22, f["column"], fontsize=6.5, color="#991b1b")
+    ax_rcc.set_title("RCC FOUNDATION / FOOTING POSITION PLAN", fontsize=12, fontweight="bold")
+    ax_rcc.set_xlabel("Grid dimension (m)")
+    ax_rcc.set_ylabel("Grid dimension (m)")
+ax_rcc.set_xlim(-0.6, approx_w+0.8)
+ax_rcc.set_ylim(-0.6, approx_l+0.8)
+ax_rcc.grid(True, linestyle=":", linewidth=0.5, alpha=0.35)
+fig_rcc.tight_layout()
+st.pyplot(fig_rcc, use_container_width=True)
+rcc_buffer = BytesIO()
+fig_rcc.savefig(rcc_buffer, format="pdf", bbox_inches="tight")
+st.download_button("Download RCC layout (PDF)", data=rcc_buffer.getvalue(), file_name="buildwise_rcc_layout_concept.pdf", mime="application/pdf")
+plt.close(fig_rcc)
+with st.expander("RCC member schedule"):
+    st.markdown("**Columns**")
+    st.dataframe(pd.DataFrame(columns), use_container_width=True, hide_index=True)
+    st.markdown("**Beams**")
+    st.dataframe(pd.DataFrame(beams), use_container_width=True, hide_index=True)
+    st.markdown("**Slab panels**")
+    st.dataframe(pd.DataFrame(slabs), use_container_width=True, hide_index=True)
+    st.markdown("**Footings**")
+    st.dataframe(pd.DataFrame(footings), use_container_width=True, hide_index=True)
+
 # ---------- dedicated load analysis and structural analysis sections ----------
-st.subheader("4. Load analysis")
+st.subheader("5. Load analysis")
 st.caption(
     "Preliminary load ledger for learning and prototype demonstration. Loads below use stated assumptions; "
     "they are not a substitute for a complete load take-down or code-based building model."
@@ -391,7 +446,7 @@ st.info(
     "Do not treat these assumed area loads as approved design loads."
 )
 
-st.subheader("5. Structural analysis")
+st.subheader("6. Structural analysis")
 st.caption(
     "The beam example below calculates a simply supported member under a uniform line load, with its assumptions shown. "
     "It is a simplified demonstration—not a full 3D building analysis or proof of RCC capacity."
@@ -458,7 +513,7 @@ st.warning(
 )
 
 # ---------- member selection and design estimates ----------
-st.subheader("6. Select any member for its diagram and estimate")
+st.subheader("7. Select any member for its diagram and estimate")
 member_kind = st.radio("Member type", ["Beam", "Column", "Slab", "Foundation"], horizontal=True)
 if member_kind == "Beam":
     member_ids = [b["id"] for b in beams]
@@ -596,7 +651,7 @@ if member_kind == "Beam":
 st.caption("Member sections and reinforcement markers are schematic. The app does not perform complete code-based RC design or prove load capacity. Steel values are quantity allowances, not reinforcement detailing.")
 
 # ---------- building quantities and cost ----------
-st.subheader("7. Whole-building material and cost estimate")
+st.subheader("8. Whole-building material and cost estimate")
 st.caption("The table explicitly lists the materials being costed. Quantities are preliminary area-factor allowances, not a measured bill of quantities.")
 # Transparent prototype quantities/rates. Concrete ingredients are split out for clarity.
 concrete_vol = total_area * 0.22
@@ -634,7 +689,7 @@ m3.metric("Indicative total incl. 5% contingency", f"₹{grand_total:,.0f}")
 st.caption("Rates are editable illustrative placeholders, not live supplier quotations. Cement/sand/aggregate conversions use a rough concrete allowance; verify mix design, wastage, local rates, taxes, transport and measured drawings before procurement. The table does not yet include doors/windows, plumbing, electrical, paint, waterproofing, excavation, or a measured reinforcement bar-bending schedule.")
 
 # ---------- report ----------
-st.subheader("8. Final report")
+st.subheader("9. Final report")
 report = f"""BUILDWISE AI — CONCEPT REPORT
 
 Location: {location}
@@ -664,4 +719,4 @@ Important limitations:
 Indicative materials/work items: ₹{materials_total:,.0f}\nLabour allowance: ₹{labour:,.0f}\nContingency: ₹{contingency:,.0f}\nIndicative total cost: ₹{grand_total:,.0f}
 """
 st.download_button("⬇️ Download concept report (TXT)", data=report, file_name="buildwise_concept_report.txt", mime="text/plain")
-st.success("Workflow displayed: inputs → candidate floor options → concept floor plans → load ledger → beam analysis with SFD/BMD → member estimates → material estimate → report.")
+st.success("Workflow displayed: inputs → candidate floor options → architectural plans → RCC layout → load ledger → beam analysis with SFD/BMD → member estimates → material estimate → report.")
