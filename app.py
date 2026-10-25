@@ -646,6 +646,129 @@ analysis_results = pd.DataFrame([
     ["Load basis", f"{load_service_area:.2f} kN/m² × {analysis_trib_width:.2f} m tributary width + beam self-weight"],
 ], columns=["Analysis output", "Result"])
 st.dataframe(analysis_results, use_container_width=True, hide_index=True)
+
+st.markdown("### Element-wise analysis overview — beams, columns, slabs and foundations")
+st.caption(
+    "The following are preliminary screening indicators for each generated element category using simplified assumptions. "
+    "They are not a coordinated frame analysis, and no pass/fail capacity claim is made without verified sections, reinforcement, material grades, load combinations and soil data."
+)
+
+# Columns: tributary-area axial-load indicator and slenderness indicator using assumed trial dimensions.
+column_rows = []
+column_b = 0.30  # m, illustrative trial section only
+column_h = 0.30  # m, illustrative trial section only
+column_height = 3.0 * chosen_floors
+column_area = max(approx_w * approx_l / max(len(columns), 1), 1.0)
+for col in columns:
+    axial_indicator = (dead_slab_load + live_load) * column_area * chosen_floors
+    column_rows.append({
+        "Column": col["id"], "Trial section (mm)": "300 × 300 (assumed)",
+        "Axial load indicator (kN)": round(axial_indicator, 2),
+        "Storey-height assumption (m)": 3.0,
+        "Slenderness indicator (height / smaller dimension)": round(3.0 / min(column_b, column_h), 2),
+        "Status": "Capacity/stability not verified"
+    })
+st.markdown("#### Columns — axial load and stability screening")
+st.dataframe(pd.DataFrame(column_rows), use_container_width=True, hide_index=True)
+st.caption("Column bending and shear demand require a frame analysis with beam-column stiffness, end conditions, lateral loads and load combinations; these are not solved by this screening table.")
+
+# Slabs: simple one-way strip indicator. Actual slab action depends on panel aspect ratio, continuity and support conditions.
+slab_rows = []
+for slab in slabs:
+    lx = max(abs(float(slab["x2"]) - float(slab["x1"])), 0.1)
+    ly = max(abs(float(slab["y2"]) - float(slab["y1"])), 0.1)
+    short_span = min(lx, ly)
+    slab_load = load_service_area
+    slab_moment = slab_load * short_span**2 / 8.0  # kN·m per m width, simply supported strip indicator
+    slab_shear = slab_load * short_span / 2.0     # kN per m width
+    slab_rows.append({
+        "Slab": slab["id"], "Panel (m)": f"{lx:.2f} × {ly:.2f}",
+        "Service area load (kN/m²)": round(slab_load, 2),
+        "Short-span strip BM (kN·m/m)": round(slab_moment, 2),
+        "Short-span strip SF (kN/m)": round(slab_shear, 2),
+        "Status": "Panel/continuity design not verified"
+    })
+st.markdown("#### Slabs — short-span strip bending and shear indicators")
+st.dataframe(pd.DataFrame(slab_rows), use_container_width=True, hide_index=True)
+st.caption("Slab deflection, reinforcement, punching shear and two-way action are not checked by this simplified strip indicator.")
+
+# Foundations: use a trial footing size and estimate average pressure from the column axial-load indicator.
+foundation_rows = []
+trial_footing_w = 1.5
+trial_footing_l = 1.5
+for footing in footings:
+    axial_indicator = (dead_slab_load + live_load) * column_area * chosen_floors
+    pressure_indicator = axial_indicator / (trial_footing_w * trial_footing_l)
+    foundation_rows.append({
+        "Foundation": footing["id"], "Supported column": footing["column"],
+        "Trial footing (m)": "1.5 × 1.5 (assumed)",
+        "Axial load indicator (kN)": round(axial_indicator, 2),
+        "Average soil pressure indicator (kN/m²)": round(pressure_indicator, 2),
+        "Status": "Bearing/flexure/punching checks need site data"
+    })
+st.markdown("#### Foundations — axial load and soil-pressure indicators")
+st.dataframe(pd.DataFrame(foundation_rows), use_container_width=True, hide_index=True)
+st.caption("No bearing-capacity pass/fail result is possible because allowable soil pressure and groundwater/site conditions are not provided. Foundation flexure, one-way shear and punching shear are not verified.")
+
+st.markdown("### Overall beam-wise SFD and BMD")
+st.caption(
+    "This overview checks every generated beam in the concept layout and compares each beam's peak shear force and bending moment. "
+    "Curves are plotted against normalized span (0–100%) so beams of different lengths can be compared. "
+    "It is not a summed whole-building analysis; a coordinated 3D structural model is required for that."
+)
+overall_rows = []
+all_beam_curves = []
+normalized_x = np.linspace(0, 1, 120)
+for beam_item in beams:
+    span_i = max(float(beam_item["span"]), 1.0)
+    bw_i, bd_i = 0.25, max(0.30, span_i / 12.0)
+    trib_i = max(approx_l / 4.0, 2.0)
+    self_weight_i = bw_i * bd_i * 25.0
+    line_load_i = load_service_area * trib_i + self_weight_i
+    x_i = normalized_x * span_i
+    shear_i = line_load_i * span_i / 2 - line_load_i * x_i
+    moment_i = line_load_i * x_i * (span_i - x_i) / 2
+    max_shear_i = line_load_i * span_i / 2
+    max_moment_i = line_load_i * span_i**2 / 8
+    overall_rows.append({
+        "Beam": beam_item["id"], "Span (m)": round(span_i, 2),
+        "Line load (kN/m)": round(line_load_i, 2),
+        "Maximum |SF| (kN)": round(max_shear_i, 2),
+        "Maximum BM (kN·m)": round(max_moment_i, 2),
+    })
+    all_beam_curves.append((beam_item["id"], shear_i, moment_i))
+overall_df = pd.DataFrame(overall_rows)
+st.dataframe(overall_df, use_container_width=True, hide_index=True)
+if all_beam_curves:
+    overall_plot1, overall_plot2 = st.columns(2)
+    with overall_plot1:
+        of1, oax1 = plt.subplots(figsize=(6.2, 3.4))
+        for beam_label, shear_curve, _ in all_beam_curves:
+            oax1.plot(normalized_x * 100, shear_curve, lw=1.7, label=beam_label)
+        oax1.axhline(0, color="black", lw=.8)
+        oax1.set_title("Overall Beam-wise Shear Force Diagrams")
+        oax1.set_xlabel("Normalized span (%)")
+        oax1.set_ylabel("Shear force (kN)")
+        oax1.grid(alpha=.25)
+        oax1.legend(fontsize=7, ncol=2)
+        of1.tight_layout()
+        st.pyplot(of1, use_container_width=True)
+        plt.close(of1)
+    with overall_plot2:
+        of2, oax2 = plt.subplots(figsize=(6.2, 3.4))
+        for beam_label, _, moment_curve in all_beam_curves:
+            oax2.plot(normalized_x * 100, moment_curve, lw=1.7, label=beam_label)
+        oax2.axhline(0, color="black", lw=.8)
+        oax2.set_title("Overall Beam-wise Bending Moment Diagrams")
+        oax2.set_xlabel("Normalized span (%)")
+        oax2.set_ylabel("Bending moment (kN·m)")
+        oax2.grid(alpha=.25)
+        oax2.legend(fontsize=7, ncol=2)
+        of2.tight_layout()
+        st.pyplot(of2, use_container_width=True)
+        plt.close(of2)
+    st.metric("Highest beam-wise shear force", f"{overall_df['Maximum |SF| (kN)'].max():.2f} kN")
+    st.metric("Highest beam-wise bending moment", f"{overall_df['Maximum BM (kN·m)'].max():.2f} kN·m")
 st.warning(
     "This analysis does not yet include a coordinated building-wide stiffness model, load combinations, "
     "lateral analysis, torsion, support settlement, or code-based strength/serviceability verification. "
@@ -721,4 +844,4 @@ Important limitations:
 Indicative materials/work items: ₹{materials_total:,.0f}\nLabour allowance: ₹{labour:,.0f}\nContingency: ₹{contingency:,.0f}\nIndicative total cost: ₹{grand_total:,.0f}
 """
 st.download_button("⬇️ Download concept report (TXT)", data=report, file_name="buildwise_concept_report.txt", mime="text/plain")
-st.success("Workflow displayed: inputs → candidate floor options → architectural plans → RCC layout → load ledger → beam analysis with SFD/BMD → member estimates → material estimate → report.")
+st.success("Workflow displayed: inputs → candidate floor options → architectural plans → RCC layout → load analysis → element-wise structural analysis indicators → member estimates → material estimate → report.")
