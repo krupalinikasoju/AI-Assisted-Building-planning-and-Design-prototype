@@ -103,58 +103,56 @@ def room_plan(floor_idx, width, length, btype):
     ink, light, furn, win, door = "#111827", "#374151", "#64748b", "#0284c7", "#7c3aed"
 
     # Each storey has its own zoning while the perimeter and stair bay remain aligned.
-    # These are schematic normalized layouts, not automatically validated construction plans.
-    floor_zones = {
-        0: [
-            (0.00, 0.52, 0.43, 1.00, "BEDROOM 1"),
-            (0.43, 0.52, 0.72, 1.00, "KITCHEN"),
-            (0.72, 0.72, 1.00, 1.00, "BATH / WC"),
-            (0.72, 0.52, 1.00, 0.72, "UTILITY"),
-            (0.00, 0.00, 0.42, 0.52, "LIVING"),
-            (0.42, 0.00, 0.72, 0.52, "DINING"),
-            (0.72, 0.00, 1.00, 0.52, "STAIRCASE"),
-        ],
-        1: [
-            (0.00, 0.56, 0.42, 1.00, "BEDROOM 2"),
-            (0.42, 0.56, 0.72, 1.00, "BEDROOM 3"),
-            (0.72, 0.75, 1.00, 1.00, "BATH / WC"),
-            (0.72, 0.56, 1.00, 0.75, "DRESS / STORE"),
-            (0.00, 0.00, 0.43, 0.56, "FAMILY LOUNGE"),
-            (0.43, 0.00, 0.72, 0.56, "MASTER BEDROOM"),
-            (0.72, 0.00, 1.00, 0.56, "STAIR / LANDING"),
-        ],
-        2: [
-            (0.00, 0.57, 0.42, 1.00, "BEDROOM 4"),
-            (0.42, 0.57, 0.72, 1.00, "STUDY"),
-            (0.72, 0.76, 1.00, 1.00, "BATH / WC"),
-            (0.72, 0.57, 1.00, 0.76, "LINEN / STORE"),
-            (0.00, 0.00, 0.43, 0.57, "MEDIA LOUNGE"),
-            (0.43, 0.00, 0.72, 0.57, "TERRACE ACCESS"),
-            (0.72, 0.00, 1.00, 0.57, "STAIR / LANDING"),
-        ],
-        3: [
-            (0.00, 0.55, 0.42, 1.00, "GUEST BEDROOM"),
-            (0.42, 0.55, 0.72, 1.00, "HOME OFFICE"),
-            (0.72, 0.75, 1.00, 1.00, "BATH / WC"),
-            (0.72, 0.55, 1.00, 0.75, "STORE"),
-            (0.00, 0.00, 0.43, 0.55, "RECREATION ROOM"),
-            (0.43, 0.00, 0.72, 0.55, "OPEN TERRACE"),
-            (0.72, 0.00, 1.00, 0.55, "STAIR / LANDING"),
-        ],
-    }
-    zones = floor_zones[min(floor_idx, 3)]
-    title = ["GROUND FLOOR PLAN", "FIRST FLOOR PLAN", "SECOND FLOOR PLAN", "THIRD FLOOR PLAN"][min(floor_idx, 3)]
-
-    # For non-residential types, retain the footprint but assign functional room names.
-    if btype == "Commercial":
-        names = ["OFFICE / SHOP", "WORK AREA", "TOILET", "STORE", "RECEPTION", "WORK AREA", "STAIRCASE"] if floor_idx == 0 else ["OFFICE 1", "OFFICE 2", "TOILET", "STORE", "MEETING / LOUNGE", "OFFICE 3", "STAIR / LANDING"]
-        zones = [(a,b,c,d,names[i]) for i,(a,b,c,d,_) in enumerate(zones)]
+    # Generate different zoning proportions and room functions from the selected
+    # building type, floor, and footprint aspect ratio. This replaces the old
+    # fixed room rectangles that were only being relabelled.
+    floor_idx = int(max(0, min(floor_idx, 3)))
+    aspect = w / L
+    if btype == "Residential":
+        x1, x2 = ((0.40, 0.70) if aspect > 1.15 else (0.46, 0.74))
+        split = [0.50, 0.55, 0.57, 0.53][floor_idx]
+        upper_names = [
+            ["BEDROOM 1", "KITCHEN", "BATH / WC", "UTILITY", "LIVING", "DINING", "STAIRCASE"],
+            ["BEDROOM 2", "BEDROOM 3", "BATH / WC", "DRESS / STORE", "FAMILY LOUNGE", "MASTER BEDROOM", "STAIR / LANDING"],
+            ["BEDROOM 4", "STUDY", "BATH / WC", "LINEN / STORE", "MEDIA LOUNGE", "TERRACE ACCESS", "STAIR / LANDING"],
+            ["GUEST BEDROOM", "HOME OFFICE", "BATH / WC", "STORE", "RECREATION ROOM", "OPEN TERRACE", "STAIR / LANDING"]
+        ][floor_idx]
+    elif btype == "Commercial":
+        x1, x2 = ((0.28, 0.76) if aspect > 1.15 else (0.34, 0.78))
+        split = [0.34, 0.38, 0.38, 0.38][floor_idx]
+        upper_names = (["SHOP / OFFICE 1", "OPEN WORK AREA", "TOILET", "STORE", "RECEPTION", "OPEN WORK AREA", "STAIRCASE"] if floor_idx == 0 else
+                       ["OFFICE 1", "OFFICE 2", "TOILET", "RECORDS", "MEETING ROOM", "OPEN OFFICE", "STAIR / LANDING"])
     elif btype == "Institutional":
-        names = ["ROOM 1", "ACTIVITY", "TOILET", "STORE", "COMMON HALL", "ACTIVITY", "STAIRCASE"] if floor_idx == 0 else ["ROOM 2", "ROOM 3", "TOILET", "STORE", "COMMON LOUNGE", "ROOM 4", "STAIR / LANDING"]
-        zones = [(a,b,c,d,names[i]) for i,(a,b,c,d,_) in enumerate(zones)]
-    elif btype == "Mixed use" and floor_idx == 0:
-        names = ["BEDROOM", "KITCHEN", "BATH / WC", "UTILITY", "SHOP / LIVING", "DINING", "STAIRCASE"]
-        zones = [(a,b,c,d,names[i]) for i,(a,b,c,d,_) in enumerate(zones)]
+        x1, x2 = ((0.34, 0.72) if aspect > 1.15 else (0.40, 0.76))
+        split = [0.42, 0.45, 0.45, 0.45][floor_idx]
+        upper_names = (["CLASS / ROOM 1", "ACTIVITY ROOM", "TOILET", "STORE", "COMMON HALL", "ACTIVITY AREA", "STAIRCASE"] if floor_idx == 0 else
+                       ["CLASS / ROOM 2", "CLASS / ROOM 3", "TOILET", "STORE", "COMMON LOUNGE", "ACTIVITY AREA", "STAIR / LANDING"])
+    else:  # Mixed use: ground floor has a larger commercial frontage; upper floors residential.
+        if floor_idx == 0:
+            x1, x2, split = 0.30, 0.72, 0.38
+            upper_names = ["BEDROOM", "KITCHEN", "BATH / WC", "UTILITY", "SHOP / LIVING", "DINING", "STAIRCASE"]
+        else:
+            x1, x2, split = 0.43, 0.74, 0.54
+            upper_names = ["BEDROOM 2", "BEDROOM 3", "BATH / WC", "STORE", "FAMILY LOUNGE", "BEDROOM / STUDY", "STAIR / LANDING"]
+
+    # Room widths are responsive to the footprint and use different proportions
+    # for each building type. Each floor has a different functional arrangement.
+    if btype == "Residential":
+        zones = [
+            (0, split, x1, 1, upper_names[0]), (x1, split, x2, 1, upper_names[1]),
+            (x2, (1+split)/2, 1, 1, upper_names[2]), (x2, split, 1, (1+split)/2, upper_names[3]),
+            (0, 0, x1, split, upper_names[4]), (x1, 0, x2, split, upper_names[5]),
+            (x2, 0, 1, split, upper_names[6])]
+    else:
+        # Non-residential/mixed-use plans allocate a broader central work/hall area
+        # and a compact service core, instead of merely changing residential labels.
+        service_y = split + (1-split)*0.56
+        zones = [
+            (0, split, x1, 1, upper_names[0]), (x1, split, x2, 1, upper_names[1]),
+            (x2, service_y, 1, 1, upper_names[2]), (x2, split, 1, service_y, upper_names[3]),
+            (0, 0, x1, split, upper_names[4]), (x1, 0, x2, split, upper_names[5]),
+            (x2, 0, 1, split, upper_names[6])]
+    title = ["GROUND FLOOR PLAN", "FIRST FLOOR PLAN", "SECOND FLOOR PLAN", "THIRD FLOOR PLAN"][floor_idx]
 
     fig, ax = plt.subplots(figsize=(10, 10), dpi=150)
     fig.patch.set_facecolor("white")
@@ -222,13 +220,13 @@ def room_plan(floor_idx, width, length, btype):
     door_w = min(.85, max(.70, w*.075))
     # The fixed zoning uses these partition axes; door locations are centered
     # in room-to-room connections and avoid the outside entrance opening.
-    internal_door_vertical(w*.43, L*.28, door_w, "bottom")
-    internal_door_vertical(w*.43, L*.76, door_w, "bottom")
-    internal_door_vertical(w*.72, L*.40, door_w, "bottom")
-    internal_door_vertical(w*.72, L*.64, min(.72, door_w), "bottom")
-    internal_door_horizontal(w*.20, L*.52, door_w, "left")
-    internal_door_horizontal(w*.58, L*.52, door_w, "left")
-    internal_door_horizontal(w*.58, L*.56 if floor_idx == 1 else L*.57, door_w, "left")
+    # Door positions follow the generated room partition coordinates.
+    internal_door_vertical(w*x1, L*split*0.55, door_w, "bottom")
+    internal_door_vertical(w*x1, L*(split + (1-split)*0.52), door_w, "bottom")
+    internal_door_vertical(w*x2, L*split*0.62, door_w, "bottom")
+    internal_door_vertical(w*x2, L*(split + (1-split)*0.72), min(.72, door_w), "bottom")
+    internal_door_horizontal(w*x1*0.48, L*split, door_w, "left")
+    internal_door_horizontal(w*(x1+x2)/2, L*split, door_w, "left")
 
     # Small room tags improve drawing readability without replacing dimension lines.
     ax.text(w*.015, L*.985, "EXT. WALL", fontsize=5.5, color=light, va="top")
@@ -350,8 +348,13 @@ for i, tab in enumerate(tabs):
         plt.close(fig)
 
 # ---------- coordinated concept structural grid ----------
-grid_x = [0, approx_w/3, 2*approx_w/3, approx_w]
-grid_y = [0, approx_l/2, approx_l]
+# Structural grid adapts to the generated footprint instead of always using
+# the same 4-column by 3-row arrangement. Bay spacing is only a concept target.
+span_target = 4.0
+nx_bays = max(2, min(6, int(math.ceil(approx_w / span_target))))
+ny_bays = max(2, min(6, int(math.ceil(approx_l / span_target))))
+grid_x = np.linspace(0.0, approx_w, nx_bays + 1).tolist()
+grid_y = np.linspace(0.0, approx_l, ny_bays + 1).tolist()
 columns = []
 beams = []
 slabs = []
@@ -512,7 +515,7 @@ if member_kind == "Beam":
     bm = next(b for b in beams if b["id"] == selected_id)
     span = max(bm["span"], 1.0)
     bw, bd = 0.25, max(0.30, span/12)
-    tributary_width = max(approx_l/4, 2.0)
+    tributary_width = max(min(approx_l / max(len(grid_y)-1, 1), 4.0), 1.0)
     line_load = (dead_slab_load + live_load) * tributary_width + bw*bd*concrete_density
     reaction = line_load*span/2
     vmax = reaction
@@ -595,7 +598,7 @@ analysis_beam_id = st.selectbox("Choose a beam for analysis", [b["id"] for b in 
 analysis_beam = next(b for b in beams if b["id"] == analysis_beam_id)
 analysis_span = max(float(analysis_beam["span"]), 1.0)
 analysis_bw, analysis_bd = 0.25, max(0.30, analysis_span / 12.0)
-analysis_trib_width = max(approx_l / 4.0, 2.0)
+analysis_trib_width = max(min(approx_l / max(len(grid_y)-1, 1), 4.0), 1.0)
 analysis_self_weight = analysis_bw * analysis_bd * 25.0
 analysis_line_load = load_service_area * analysis_trib_width + analysis_self_weight
 analysis_reaction = analysis_line_load * analysis_span / 2.0
@@ -722,7 +725,7 @@ normalized_x = np.linspace(0, 1, 120)
 for beam_item in beams:
     span_i = max(float(beam_item["span"]), 1.0)
     bw_i, bd_i = 0.25, max(0.30, span_i / 12.0)
-    trib_i = max(approx_l / 4.0, 2.0)
+    trib_i = max(min(approx_l / max(len(grid_y)-1, 1), 4.0), 1.0)
     self_weight_i = bw_i * bd_i * 25.0
     line_load_i = load_service_area * trib_i + self_weight_i
     x_i = normalized_x * span_i
