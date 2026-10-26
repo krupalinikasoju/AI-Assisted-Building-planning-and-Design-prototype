@@ -201,6 +201,16 @@ def room_plan(floor_idx, width, length, btype):
             pw,ph=bw*.27,bh*.15
             for px in (cx-bw*.23,cx+bw*.23):
                 ax.add_patch(Rectangle((px-pw/2,cy+bh*.34-ph/2),pw,ph,fill=False,ec=furniture,lw=.65,zorder=5))
+            # Two bedside tables and a wardrobe, scaled to fit the room.
+            side=min(.34,max(.20,rw*.10)); side_h=min(.34,max(.20,rh*.10))
+            for sx in (cx-bw/2-side*.65, cx+bw/2+side*.65):
+                if xa+.08 < sx-side/2 and sx+side/2 < xb-.08:
+                    ax.add_patch(Rectangle((sx-side/2,cy+bh*.15-side_h/2),side,side_h,fill=False,ec=furniture,lw=.7,zorder=5))
+            ww,wh=min(.95,rw*.30),min(.30,rh*.12)
+            ax.add_patch(Rectangle((cx-ww/2,ya+rh*.08),ww,wh,fill=False,ec=furniture,lw=.8,zorder=5))
+            ax.plot([cx,cx],[ya+rh*.08,ya+rh*.08+wh],color=furniture,lw=.55,zorder=5)
+            if rw > 2.7:
+                ax.add_patch(Rectangle((xa+rw*.08,cy-rh*.32),min(.65,rw*.22),min(.35,rh*.12),fill=False,ec=furniture,lw=.7,zorder=5)) # study desk
         elif kind == "living":
             sw,sh=min(rw*.56,2.0),min(rh*.20,.62)
             ax.add_patch(Rectangle((cx-sw/2,cy-sh/2),sw,sh,fill=False,ec=furniture,lw=1.0,zorder=5))
@@ -209,18 +219,36 @@ def room_plan(floor_idx, width, length, btype):
             # Coffee table opposite the sofa.
             tw,th=min(rw*.28,.8),min(rh*.15,.42)
             ax.add_patch(Rectangle((cx-tw/2,cy-rh*.18-th/2),tw,th,fill=False,ec=furniture,lw=.8,zorder=5))
+            # Accent chairs and a TV/media console complete the seating group.
+            cw,ch=min(.68,rw*.20),min(.52,rh*.16)
+            for sx in (cx-sw*.36-cw*.40, cx+sw*.36+cw*.40):
+                if xa+.08 < sx-cw/2 and sx+cw/2 < xb-.08:
+                    ax.add_patch(Rectangle((sx-cw/2,cy-rh*.34-ch/2),cw,ch,fill=False,ec=furniture,lw=.8,zorder=5))
+            tvw,tvh=min(1.15,rw*.38),min(.16,rh*.07)
+            ax.add_patch(Rectangle((cx-tvw/2,ya+rh*.08),tvw,tvh,fill=False,ec=furniture,lw=.8,zorder=5))
         elif kind in ("work", "plain"):
             # Desk/counter and chair for offices, stores and flexible rooms.
             dw,dh=min(rw*.48,1.45),min(rh*.16,.48)
             ax.add_patch(Rectangle((cx-dw/2,cy+rh*.06),dw,dh,fill=False,ec=furniture,lw=.9,zorder=5))
             ax.add_patch(Rectangle((cx-.16,cy-rh*.12),.32,.28,fill=False,ec=furniture,lw=.75,zorder=5))
+            # Storage/bookshelf and a second visitor chair for larger rooms.
+            shelf_w,shelf_h=min(.22,rw*.08),min(.85,rh*.30)
+            ax.add_patch(Rectangle((xa+rw*.08,cy-shelf_h/2),shelf_w,shelf_h,fill=False,ec=furniture,lw=.75,zorder=5))
+            for k in (1,2,3):
+                yy=cy-shelf_h/2+shelf_h*k/4
+                ax.plot([xa+rw*.08,xa+rw*.08+shelf_w],[yy,yy],color=furniture,lw=.5,zorder=5)
+            if rw > 2.5 and rh > 2.5:
+                ax.add_patch(Rectangle((cx+.30,cy-rh*.27),.30,.27,fill=False,ec=furniture,lw=.7,zorder=5))
         elif kind in ("dining","table"):
             bw,bh=min(rw*.34,1.15),min(rh*.25,.82)
             ax.add_patch(Rectangle((cx-bw/2,cy-bh/2),bw,bh,fill=False,ec=furniture,lw=1.0,zorder=5))
             # Four chairs around the table when the room has enough space.
             if rw > 2.1 and rh > 2.1:
-                for px,py in ((cx,cy-bh/2-.17),(cx,cy+bh/2+.17),(cx-bw/2-.17,cy),(cx+bw/2+.17,cy)):
-                    ax.add_patch(Rectangle((px-.09,py-.09),.18,.18,fill=False,ec=furniture,lw=.7,zorder=5))
+                chair=.18
+                for px,py in ((cx-bw*.30,cy-bh/2-.15),(cx+bw*.30,cy-bh/2-.15),
+                              (cx-bw*.30,cy+bh/2+.15),(cx+bw*.30,cy+bh/2+.15),
+                              (cx-bw/2-.15,cy),(cx+bw/2+.15,cy)):
+                    ax.add_patch(Rectangle((px-chair/2,py-chair/2),chair,chair,fill=False,ec=furniture,lw=.7,zorder=5))
         elif kind == "kitchen":
             counter_h=min(.24,rh*.10)
             ax.add_patch(Rectangle((xa+.12,ya+rh*.20),max(.25,rw-.24),counter_h,fill=False,ec=furniture,lw=.9,zorder=5))
@@ -228,11 +256,21 @@ def room_plan(floor_idx, width, length, btype):
             ax.add_patch(Rectangle((xa+.22,ya+rh*.21),min(.38,rw*.18),counter_h*.65,fill=False,ec=furniture,lw=.6,zorder=5))
             for dx in (xa+rw*.68,xa+rw*.78):
                 ax.add_patch(Circle((dx,ya+rh*.25),radius=min(.055,rw*.025,rh*.025),fill=False,ec=furniture,lw=.65,zorder=5))
+            # Refrigerator and a compact prep/island counter where room size permits.
+            fw,fh=min(.42,rw*.16),min(.58,rh*.22)
+            ax.add_patch(Rectangle((xb-fw-.10,ya+rh*.12),fw,fh,fill=False,ec=furniture,lw=.8,zorder=5))
+            ax.plot([xb-fw-.10,xb-.10],[ya+rh*.12+fh*.72,ya+rh*.12+fh*.72],color=furniture,lw=.5,zorder=5)
+            if rw > 2.8 and rh > 2.7:
+                iw,ih=min(.85,rw*.30),min(.30,rh*.11)
+                ax.add_patch(Rectangle((cx-iw/2,ya+rh*.52),iw,ih,fill=False,ec=furniture,lw=.8,zorder=5))
         elif kind == "bath":
             bw=min(.52,max(.24,rw*.25)); bh=min(.34,max(.22,rh*.16))
             ax.add_patch(Rectangle((xa+.12,ya+rh*.22),bw,bh,fill=False,ec=furniture,lw=.8,zorder=5)) # shower
             ax.add_patch(Circle((xa+rw*.70,ya+rh*.30),radius=min(.12,rw*.07,rh*.07),fill=False,ec=furniture,lw=.8,zorder=5)) # basin
             ax.add_patch(Rectangle((xa+rw*.62,ya+rh*.48),min(.28,rw*.16),min(.38,rh*.18),fill=False,ec=furniture,lw=.8,zorder=5)) # WC
+            # Small vanity and towel/storage cabinet.
+            ax.add_patch(Rectangle((xa+rw*.60,ya+rh*.18),min(.42,rw*.20),min(.20,rh*.09),fill=False,ec=furniture,lw=.7,zorder=5))
+            ax.add_patch(Rectangle((xb-min(.22,rw*.10)-.08,yb-min(.60,rh*.24)-.08),min(.22,rw*.10),min(.60,rh*.24),fill=False,ec=furniture,lw=.7,zorder=5))
         elif kind == "stair":
             for k in range(1,8):
                 yy=ya+rh*k/8
