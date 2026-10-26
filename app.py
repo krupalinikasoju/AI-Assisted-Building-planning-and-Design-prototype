@@ -90,240 +90,175 @@ total_area = floor_plate * chosen_floors
 
 # ---------- architectural floor plan ----------
 def room_plan(floor_idx, width, length, btype):
-    """Draw a floor-specific, dimensioned CAD-style concept plan.
+    """Generate a responsive, building-type-specific architectural concept plan.
 
-    Room zoning differs between the ground floor and upper floors. Dimensions are
-    derived from the estimated footprint and must be checked against a real survey.
+    Room placement is selected from different adjacency templates by building use,
+    storey, footprint area and aspect ratio. Geometry is approximate, not surveyed.
     """
     from matplotlib.patches import Rectangle, Arc, Circle
 
     w, L = max(float(width), 6.0), max(float(length), 6.0)
-    wall = min(0.20, w * 0.018, L * 0.018)
-    part = min(0.14, w * 0.014, L * 0.014)
-    ink, light, furn, win, door = "#111827", "#374151", "#64748b", "#0284c7", "#7c3aed"
-
-    # Each storey has its own zoning while the perimeter and stair bay remain aligned.
-    # Generate different zoning proportions and room functions from the selected
-    # building type, floor, and footprint aspect ratio. This replaces the old
-    # fixed room rectangles that were only being relabelled.
-    floor_idx = int(max(0, min(floor_idx, 3)))
+    area = w * L
     aspect = w / L
+    floor_idx = int(max(0, min(floor_idx, 3)))
+    ink, secondary, furniture, window_color, door_color = "#111827", "#475569", "#64748b", "#0284c7", "#7c3aed"
+
+    # Each template is a genuinely different room-adjacency arrangement.
+    # Coordinates are normalized (0..1), then scaled to the generated footprint.
     if btype == "Residential":
-        x1, x2 = ((0.40, 0.70) if aspect > 1.15 else (0.46, 0.74))
-        split = [0.50, 0.55, 0.57, 0.53][floor_idx]
-        upper_names = [
-            ["BEDROOM 1", "KITCHEN", "BATH / WC", "UTILITY", "LIVING", "DINING", "STAIRCASE"],
-            ["BEDROOM 2", "BEDROOM 3", "BATH / WC", "DRESS / STORE", "FAMILY LOUNGE", "MASTER BEDROOM", "STAIR / LANDING"],
-            ["BEDROOM 4", "STUDY", "BATH / WC", "LINEN / STORE", "MEDIA LOUNGE", "TERRACE ACCESS", "STAIR / LANDING"],
-            ["GUEST BEDROOM", "HOME OFFICE", "BATH / WC", "STORE", "RECREATION ROOM", "OPEN TERRACE", "STAIR / LANDING"]
-        ][floor_idx]
-    elif btype == "Commercial":
-        x1, x2 = ((0.28, 0.76) if aspect > 1.15 else (0.34, 0.78))
-        split = [0.34, 0.38, 0.38, 0.38][floor_idx]
-        upper_names = (["SHOP / OFFICE 1", "OPEN WORK AREA", "TOILET", "STORE", "RECEPTION", "OPEN WORK AREA", "STAIRCASE"] if floor_idx == 0 else
-                       ["OFFICE 1", "OFFICE 2", "TOILET", "RECORDS", "MEETING ROOM", "OPEN OFFICE", "STAIR / LANDING"])
-    elif btype == "Institutional":
-        x1, x2 = ((0.34, 0.72) if aspect > 1.15 else (0.40, 0.76))
-        split = [0.42, 0.45, 0.45, 0.45][floor_idx]
-        upper_names = (["CLASS / ROOM 1", "ACTIVITY ROOM", "TOILET", "STORE", "COMMON HALL", "ACTIVITY AREA", "STAIRCASE"] if floor_idx == 0 else
-                       ["CLASS / ROOM 2", "CLASS / ROOM 3", "TOILET", "STORE", "COMMON LOUNGE", "ACTIVITY AREA", "STAIR / LANDING"])
-    else:  # Mixed use: ground floor has a larger commercial frontage; upper floors residential.
         if floor_idx == 0:
-            x1, x2, split = 0.30, 0.72, 0.38
-            upper_names = ["BEDROOM", "KITCHEN", "BATH / WC", "UTILITY", "SHOP / LIVING", "DINING", "STAIRCASE"]
+            template = [
+                (.00,.52,.34,1.00,"BEDROOM 1","bed"), (.34,.52,.66,1.00,"KITCHEN","kitchen"),
+                (.66,.72,1.00,1.00,"BATH / WC","bath"), (.66,.52,1.00,.72,"UTILITY","plain"),
+                (.00,.00,.48,.52,"LIVING ROOM","living"), (.48,.00,.76,.52,"DINING","dining"),
+                (.76,.00,1.00,.52,"STAIRCASE","stair")]
         else:
-            x1, x2, split = 0.43, 0.74, 0.54
-            upper_names = ["BEDROOM 2", "BEDROOM 3", "BATH / WC", "STORE", "FAMILY LOUNGE", "BEDROOM / STUDY", "STAIR / LANDING"]
+            template = [
+                (.00,.55,.36,1.00,f"BEDROOM {min(floor_idx+1,4)}","bed"), (.36,.55,.68,1.00,"BEDROOM / STUDY","bed"),
+                (.68,.76,1.00,1.00,"BATH / WC","bath"), (.68,.55,1.00,.76,"LINEN / STORE","plain"),
+                (.00,.00,.43,.55,"FAMILY LOUNGE","living"), (.43,.00,.73,.55,"MASTER BEDROOM","bed"),
+                (.73,.00,1.00,.55,"STAIR / LANDING","stair")]
+    elif btype == "Commercial":
+        if floor_idx == 0:
+            template = [
+                (.00,.56,.27,1.00,"SHOP / OFFICE 1","plain"), (.27,.56,.70,1.00,"OPEN WORK / SALES","work"),
+                (.70,.76,1.00,1.00,"TOILET","bath"), (.70,.56,1.00,.76,"STORE","plain"),
+                (.00,.00,.24,.56,"RECEPTION","work"), (.24,.00,.70,.56,"CUSTOMER / WORK AREA","work"),
+                (.70,.00,1.00,.56,"STAIR / LOBBY","stair")]
+        else:
+            template = [
+                (.00,.58,.33,1.00,"PRIVATE OFFICE","work"), (.33,.58,.70,1.00,"MEETING ROOM","table"),
+                (.70,.77,1.00,1.00,"TOILET","bath"), (.70,.58,1.00,.77,"RECORDS / STORE","plain"),
+                (.00,.00,.22,.58,"RECEPTION","work"), (.22,.00,.70,.58,"OPEN OFFICE","work"),
+                (.70,.00,1.00,.58,"STAIR / LOBBY","stair")]
+    elif btype == "Institutional":
+        if floor_idx == 0:
+            template = [
+                (.00,.55,.36,1.00,"CLASSROOM 1","table"), (.36,.55,.72,1.00,"CLASSROOM 2","table"),
+                (.72,.76,1.00,1.00,"TOILET","bath"), (.72,.55,1.00,.76,"STORE","plain"),
+                (.00,.00,.28,.55,"OFFICE","work"), (.28,.00,.72,.55,"ACTIVITY / COMMON HALL","table"),
+                (.72,.00,1.00,.55,"STAIR / LOBBY","stair")]
+        else:
+            template = [
+                (.00,.58,.34,1.00,"CLASSROOM 3","table"), (.34,.58,.70,1.00,"CLASSROOM 4","table"),
+                (.70,.77,1.00,1.00,"TOILET","bath"), (.70,.58,1.00,.77,"STORE","plain"),
+                (.00,.00,.25,.58,"STAFF ROOM","work"), (.25,.00,.70,.58,"ACTIVITY HALL","table"),
+                (.70,.00,1.00,.58,"STAIR / LOBBY","stair")]
+    else:  # Mixed use: commercial frontage at ground, residential above.
+        if floor_idx == 0:
+            template = [
+                (.00,.56,.36,1.00,"SHOP / OFFICE","work"), (.36,.56,.68,1.00,"KITCHEN","kitchen"),
+                (.68,.76,1.00,1.00,"BATH / WC","bath"), (.68,.56,1.00,.76,"UTILITY","plain"),
+                (.00,.00,.48,.56,"SHOP / LIVING","living"), (.48,.00,.73,.56,"DINING","dining"),
+                (.73,.00,1.00,.56,"STAIRCASE","stair")]
+        else:
+            template = [
+                (.00,.55,.36,1.00,"BEDROOM 1","bed"), (.36,.55,.68,1.00,"KITCHEN","kitchen"),
+                (.68,.76,1.00,1.00,"BATH / WC","bath"), (.68,.55,1.00,.76,"STORE","plain"),
+                (.00,.00,.43,.55,"FAMILY LOUNGE","living"), (.43,.00,.73,.55,"BEDROOM 2","bed"),
+                (.73,.00,1.00,.55,"STAIR / LANDING","stair")]
 
-    # Room widths are responsive to the footprint and use different proportions
-    # for each building type. Each floor has a different functional arrangement.
-    if btype == "Residential":
-        zones = [
-            (0, split, x1, 1, upper_names[0]), (x1, split, x2, 1, upper_names[1]),
-            (x2, (1+split)/2, 1, 1, upper_names[2]), (x2, split, 1, (1+split)/2, upper_names[3]),
-            (0, 0, x1, split, upper_names[4]), (x1, 0, x2, split, upper_names[5]),
-            (x2, 0, 1, split, upper_names[6])]
+    # For a portrait footprint, rotate the normalized plan so the long direction is used efficiently.
+    if aspect < 0.82:
+        template = [(y0, x0, y1, x1, name, kind) for x0,y0,x1,y1,name,kind in template]
+        # Rotation changes the normalized dimensions; map the drawing to its actual footprint.
+        def xy(u, v): return (u*w, v*L)
     else:
-        # Non-residential/mixed-use plans allocate a broader central work/hall area
-        # and a compact service core, instead of merely changing residential labels.
-        service_y = split + (1-split)*0.56
-        zones = [
-            (0, split, x1, 1, upper_names[0]), (x1, split, x2, 1, upper_names[1]),
-            (x2, service_y, 1, 1, upper_names[2]), (x2, split, 1, service_y, upper_names[3]),
-            (0, 0, x1, split, upper_names[4]), (x1, 0, x2, split, upper_names[5]),
-            (x2, 0, 1, split, upper_names[6])]
-    title = ["GROUND FLOOR PLAN", "FIRST FLOOR PLAN", "SECOND FLOOR PLAN", "THIRD FLOOR PLAN"][floor_idx]
+        def xy(u, v): return (u*w, v*L)
 
-    fig, ax = plt.subplots(figsize=(10, 10), dpi=150)
+    fig, ax = plt.subplots(figsize=(12, 9), dpi=190)
     fig.patch.set_facecolor("white")
     ax.set_aspect("equal")
-    ax.set_xlim(-2.15, w + 1.85)
-    ax.set_ylim(-2.35, L + 2.35)
-    ax.axis("off")
+    ax.set_xlim(-2.0, w+2.2); ax.set_ylim(-2.55, L+2.4); ax.axis("off")
+    # Heavy exterior wall and inner face.
+    wall = min(.20, w*.018, L*.018)
+    ax.add_patch(Rectangle((0,0),w,L,fill=False,ec=ink,lw=3.0,zorder=3))
+    ax.add_patch(Rectangle((wall,wall),w-2*wall,L-2*wall,fill=False,ec=ink,lw=.8,zorder=3))
 
-    # Exterior walls are double-line. Each room zone gets a clear CAD partition outline.
-    # Heavier exterior line, lighter inner face, and a subtle drawing frame
-    # create a clearer architectural-sheet hierarchy.
-    ax.add_patch(Rectangle((0, 0), w, L, fill=False, ec=ink, lw=2.8, zorder=3))
-    ax.add_patch(Rectangle((wall, wall), w-2*wall, L-2*wall, fill=False, ec=ink, lw=0.85, zorder=3))
+    rooms=[]
+    for x0,y0,x1,y1,name,kind in template:
+        xa,ya=xy(x0,y0); xb,yb=xy(x1,y1)
+        xa,xb=sorted((xa,xb)); ya,yb=sorted((ya,yb))
+        rooms.append((xa,ya,xb,yb,name,kind))
+        # Each room tile is bounded by clear CAD-style partition lines.
+        if x0 > 0.001: ax.plot([xa,xa],[ya,yb],color=ink,lw=1.35,zorder=3)
+        if x1 < 0.999: ax.plot([xb,xb],[ya,yb],color=ink,lw=1.35,zorder=3)
+        if y0 > 0.001: ax.plot([xa,xb],[ya,ya],color=ink,lw=1.35,zorder=3)
+        if y1 < 0.999: ax.plot([xa,xb],[yb,yb],color=ink,lw=1.35,zorder=3)
+        rw,rh=xb-xa,yb-ya
+        label=f"{name}\n{rw:.2f} × {rh:.2f} m  |  {rw*rh:.1f} m²"
+        fs=5.3 if min(rw,rh)<2.1 else 6.3
+        ax.text((xa+xb)/2,(ya+yb)/2,label,ha="center",va="center",fontsize=fs,color=ink,fontweight="semibold",
+                bbox=dict(boxstyle="square,pad=.13",facecolor="white",edgecolor="#cbd5e1",linewidth=.35,alpha=.94),zorder=7)
+        # Function-specific furniture / fixture symbols.
+        cx,cy=(xa+xb)/2,(ya+yb)/2
+        if kind == "bed":
+            bw,bh=min(rw*.42,1.5),min(rh*.38,1.8)
+            ax.add_patch(Rectangle((cx-bw/2,cy-bh/2),bw,bh,fill=False,ec=furniture,lw=.8,zorder=5))
+            ax.plot([cx-bw/2,cx+bw/2],[cy+bh*.18,cy+bh*.18],color=furniture,lw=.6,zorder=5)
+        elif kind in ("living","work"):
+            bw,bh=min(rw*.42,1.6),min(rh*.20,.55)
+            ax.add_patch(Rectangle((cx-bw/2,cy-bh/2),bw,bh,fill=False,ec=furniture,lw=.8,zorder=5))
+        elif kind in ("dining","table"):
+            bw,bh=min(rw*.35,1.0),min(rh*.28,.75)
+            ax.add_patch(Rectangle((cx-bw/2,cy-bh/2),bw,bh,fill=False,ec=furniture,lw=.8,zorder=5))
+        elif kind == "kitchen":
+            ax.add_patch(Rectangle((xa+.12,yb-.32),max(.25,rw-.24),.20,fill=False,ec=furniture,lw=.7,zorder=5))
+        elif kind == "bath":
+            ax.add_patch(Rectangle((xa+.12,yb-.38),min(.42,max(.2,rw-.2)),.25,fill=False,ec=furniture,lw=.7,zorder=5))
+            ax.add_patch(Circle((xa+rw*.68,ya+rh*.35),radius=min(.11,rw*.08,rh*.08),fill=False,ec=furniture,lw=.7,zorder=5))
+        elif kind == "stair":
+            for k in range(1,8):
+                yy=ya+rh*k/8
+                ax.plot([xa+.12,xb-.12],[yy,yy],color=furniture,lw=.5,zorder=5)
+            ax.annotate("UP",xy=(cx,yb-.12),xytext=(cx,ya+.12),arrowprops=dict(arrowstyle="->",lw=.7,color=furniture),ha="center",va="center",fontsize=6,color=furniture,zorder=6)
 
-    def room_box(x0, y0, x1, y1, name):
-        xa, ya, xb, yb = x0*w, y0*L, x1*w, y1*L
-        # Draw internal double-line partitions; outer edges are already represented by perimeter.
-        if x0 > 0:
-            ax.plot([xa, xa], [ya, yb], color=ink, lw=1.35)
-            ax.plot([xa+part, xa+part], [ya, yb], color=light, lw=0.5)
-        if x1 < 1:
-            ax.plot([xb, xb], [ya, yb], color=ink, lw=1.35)
-            ax.plot([xb-part, xb-part], [ya, yb], color=light, lw=0.5)
-        if y0 > 0:
-            ax.plot([xa, xb], [ya, ya], color=ink, lw=1.35)
-            ax.plot([xa, xb], [ya+part, ya+part], color=light, lw=0.5)
-        if y1 < 1:
-            ax.plot([xa, xb], [yb, yb], color=ink, lw=1.35)
-            ax.plot([xa, xb], [yb-part, yb-part], color=light, lw=0.5)
-        rw, rh = xb-xa, yb-ya
-        # Put room labels toward the upper part of each room so furniture symbols
-        # remain legible and do not sit underneath the text.
-        label_y = yb - max(0.28, rh * 0.16)
-        ax.text((xa+xb)/2, label_y, f"{name}\n{rw:.2f} × {rh:.2f} m",
-                ha="center", va="center", fontsize=7.0, color=ink, fontweight="bold",
-                bbox=dict(boxstyle="round,pad=0.18", facecolor="white", edgecolor="none", alpha=0.94),
-                zorder=10)
-        return xa, ya, xb, yb
+    # Main entrance and windows. These are schematic opening markers, not construction details.
+    ew=min(.95,max(.70,w*.075)); ex=w*.20
+    ax.plot([ex-ew/2,ex+ew/2],[0,0],color="white",lw=4.5,zorder=8)
+    ax.plot([ex-ew/2,ex-ew/2],[0,ew],color=door_color,lw=.8,zorder=9)
+    ax.add_patch(Arc((ex-ew/2,0),2*ew,2*ew,theta1=0,theta2=90,ec=door_color,lw=.7,zorder=9))
+    for yy in (L*.22,L*.78):
+        for xx,sgn in ((0,1),(w,-1)):
+            ax.plot([xx,xx],[yy-.38,yy+.38],color="white",lw=4.2,zorder=8)
+            ax.plot([xx+sgn*wall*.25,xx+sgn*wall*.25],[yy-.38,yy+.38],color=window_color,lw=.9,zorder=9)
+            ax.plot([xx-sgn*wall*.25,xx-sgn*wall*.25],[yy-.38,yy+.38],color=window_color,lw=.9,zorder=9)
 
-    boxes = [room_box(*z) for z in zones]
-
-    # Architectural opening layer: mask selected partition segments, then draw
-    # door leaves and swing arcs. This is still a concept layout, but openings
-    # are now represented graphically instead of leaving every partition solid.
-    def internal_door_vertical(x, y, width, hinge="bottom"):
-        y0, y1 = y - width / 2, y + width / 2
-        ax.plot([x, x], [y0, y1], color="white", lw=3.2, zorder=8)
-        if hinge == "bottom":
-            ax.plot([x, x + width], [y0, y0], color=door, lw=.85, zorder=9)
-            ax.add_patch(Arc((x, y0), 2*width, 2*width, theta1=0, theta2=90, ec=door, lw=.7, zorder=9))
-        else:
-            ax.plot([x, x + width], [y1, y1], color=door, lw=.85, zorder=9)
-            ax.add_patch(Arc((x, y1), 2*width, 2*width, theta1=270, theta2=360, ec=door, lw=.7, zorder=9))
-
-    def internal_door_horizontal(x, y, width, hinge="left"):
-        x0, x1 = x - width / 2, x + width / 2
-        ax.plot([x0, x1], [y, y], color="white", lw=3.2, zorder=8)
-        if hinge == "left":
-            ax.plot([x0, x0], [y, y + width], color=door, lw=.85, zorder=9)
-            ax.add_patch(Arc((x0, y), 2*width, 2*width, theta1=0, theta2=90, ec=door, lw=.7, zorder=9))
-        else:
-            ax.plot([x1, x1], [y, y + width], color=door, lw=.85, zorder=9)
-            ax.add_patch(Arc((x1, y), 2*width, 2*width, theta1=90, theta2=180, ec=door, lw=.7, zorder=9))
-
-    door_w = min(.85, max(.70, w*.075))
-    # The fixed zoning uses these partition axes; door locations are centered
-    # in room-to-room connections and avoid the outside entrance opening.
-    # Door positions follow the generated room partition coordinates.
-    internal_door_vertical(w*x1, L*split*0.55, door_w, "bottom")
-    internal_door_vertical(w*x1, L*(split + (1-split)*0.52), door_w, "bottom")
-    internal_door_vertical(w*x2, L*split*0.62, door_w, "bottom")
-    internal_door_vertical(w*x2, L*(split + (1-split)*0.72), min(.72, door_w), "bottom")
-    internal_door_horizontal(w*x1*0.48, L*split, door_w, "left")
-    internal_door_horizontal(w*(x1+x2)/2, L*split, door_w, "left")
-
-    # Small room tags improve drawing readability without replacing dimension lines.
-    ax.text(w*.015, L*.985, "EXT. WALL", fontsize=5.5, color=light, va="top")
-
-    def bed(cx, cy, bw, bh):
-        ax.add_patch(Rectangle((cx-bw/2, cy-bh/2), bw, bh, fill=False, ec=furn, lw=.8))
-        ax.plot([cx-bw/2, cx+bw/2], [cy+bh*.20, cy+bh*.20], color=furn, lw=.6)
-        for sign in [-1, 1]:
-            ax.add_patch(Rectangle((cx+sign*bw*.10-bw*.10, cy+bh*.23), bw*.18, bh*.13, fill=False, ec=furn, lw=.5))
-
-    def sofa(cx, cy, sw, sh):
-        ax.add_patch(Rectangle((cx-sw/2, cy-sh/2), sw, sh, fill=False, ec=furn, lw=.8))
-        ax.plot([cx-sw/2, cx+sw/2], [cy, cy], color=furn, lw=.5)
-
-    # Furniture and fixtures are placed by floor function, not only relabelled.
-    if floor_idx == 0:
-        bx = boxes[0]
-        bed((bx[0]+bx[2])/2, (bx[1]+bx[3])/2, min((bx[2]-bx[0])*.48, 1.6), min((bx[3]-bx[1])*.45, 1.9))
-        k = boxes[1]; ax.add_patch(Rectangle((k[0]+.12, k[3]-.38), max(.25,k[2]-k[0]-.24), .22, fill=False, ec=furn, lw=.7))
-        liv = boxes[4]; sofa((liv[0]+liv[2])/2, (liv[1]+liv[3])/2, min((liv[2]-liv[0])*.62,1.7), .48)
-        din = boxes[5]; ax.add_patch(Rectangle(((din[0]+din[2])/2-.32,(din[1]+din[3])/2-.38),.64,.76,fill=False,ec=furn,lw=.7))
-    else:
-        # Bedrooms receive bed symbols; lounge/recreation zones get seating.
-        for idx in ([0, 1, 5] if floor_idx == 1 else [0]):
-            q = boxes[idx]
-            bed((q[0]+q[2])/2, (q[1]+q[3])/2,
-                min((q[2]-q[0])*.48, 1.55), min((q[3]-q[1])*.42, 1.85))
-        lounge = boxes[4]
-        sofa((lounge[0]+lounge[2])/2, (lounge[1]+lounge[3])/2,
-             min((lounge[2]-lounge[0])*.60, 1.7), .48)
-
-    # Bathroom fixtures on both floors where the bath zone exists.
-    bath = boxes[2]
-    ax.add_patch(Rectangle((bath[0]+.12,bath[3]-.42),min(.42,bath[2]-bath[0]-.20),.27,fill=False,ec=furn,lw=.65))
-    ax.add_patch(Circle((bath[0]+(bath[2]-bath[0])*.62,bath[1]+(bath[3]-bath[1])*.40),radius=.12,fill=False,ec=furn,lw=.65))
-
-    # Stair treads and up direction aligned at the right front zone on each floor.
-    stair = boxes[6]
-    sx0, sy0, sx1, sy1 = stair
-    for k in range(1, 8):
-        yy=sy0+(sy1-sy0)*k/8
-        ax.plot([sx0+.12,sx1-.12],[yy,yy],color=furn,lw=.5)
-    ax.annotate("UP",xy=((sx0+sx1)/2,sy1-.15),xytext=((sx0+sx1)/2,sy0+.15),arrowprops=dict(arrowstyle="->",lw=.7,color=furn),ha="center",va="center",fontsize=6.5,color=furn)
-
-    # Main entrance is at ground floor; upper-floor entry is shown at the stair landing.
-    if floor_idx == 0:
-        ex, ew = w*.20, min(.95,w*.12)
-        ax.plot([ex-ew/2,ex+ew/2],[0,0],color="white",lw=4.8,zorder=6)
-        ax.plot([ex-ew/2,ex-ew/2],[0,ew],color=door,lw=.8,zorder=7)
-        ax.add_patch(Arc((ex-ew/2,0),2*ew,2*ew,theta1=0,theta2=90,ec=door,lw=.7,zorder=7))
-    else:
-        ex, ew = (sx0+sx1)/2, min(.85,w*.10)
-        ax.plot([ex-ew/2,ex+ew/2],[0,0],color="white",lw=4.8,zorder=6)
-        ax.plot([ex-ew/2,ex-ew/2],[0,ew],color=door,lw=.8,zorder=7)
-        ax.add_patch(Arc((ex-ew/2,0),2*ew,2*ew,theta1=0,theta2=90,ec=door,lw=.7,zorder=7))
-
-    # Window markers placed on external walls at multiple rooms.
-    for yy in [L*.22,L*.78]:
-        for xx in [0,w]:
-            ax.plot([xx,xx],[yy-.38,yy+.38],color="white",lw=4.2,zorder=5)
-            ax.plot([xx-wall*.25,xx-wall*.25],[yy-.38,yy+.38],color=win,lw=.9,zorder=6)
-            ax.plot([xx+wall*.25,xx+wall*.25],[yy-.38,yy+.38],color=win,lw=.9,zorder=6)
-    ax.plot([w*.22,w*.34],[L,L],color="white",lw=4.2,zorder=5)
-    ax.plot([w*.22,w*.34],[L-wall*.25,L-wall*.25],color=win,lw=.9,zorder=6)
-    ax.plot([w*.22,w*.34],[L+wall*.25,L+wall*.25],color=win,lw=.9,zorder=6)
-
-    # Dimension chains, overall dimensions, north arrow, scale bar and title.
-    def hdim(xa, xb, y, label, base_y):
-        ax.plot([xa,xa],[base_y,y],color=light,lw=.4); ax.plot([xb,xb],[base_y,y],color=light,lw=.4)
-        ax.annotate("",xy=(xa,y),xytext=(xb,y),arrowprops=dict(arrowstyle="<->",lw=.6,color=light))
-        ax.text((xa+xb)/2,y+.08,label,ha="center",va="bottom",fontsize=7,color=light)
-    def vdim(ya, yb, x, label, base_x):
-        ax.plot([base_x,x],[ya,ya],color=light,lw=.4); ax.plot([base_x,x],[yb,yb],color=light,lw=.4)
-        ax.annotate("",xy=(x,ya),xytext=(x,yb),arrowprops=dict(arrowstyle="<->",lw=.6,color=light))
-        ax.text(x-.08,(ya+yb)/2,label,rotation=90,ha="right",va="center",fontsize=7,color=light)
-    hdim(0,w,L+1.15,f"{w:.2f} m",L)
-    hdim(0,w*.43,L+.55,f"{w*.43:.2f}",L)
-    hdim(w*.43,w*.72,L+.55,f"{w*.29:.2f}",L)
-    hdim(w*.72,w,L+.55,f"{w*.28:.2f}",L)
-    vdim(0,L,-1.15,f"{L:.2f} m",0)
-    vdim(0,L*.52,-.55,f"{L*.52:.2f}",0)
-    vdim(L*.52,L,-.55,f"{L*.48:.2f}",0)
-    ax.annotate("N",xy=(w+.85,L-.25),xytext=(w+.85,L-1.0),arrowprops=dict(arrowstyle="-|>",lw=1,color=ink),ha="center",fontsize=9,fontweight="bold")
-    bar=min(2.0,w*.30); ax.plot([0,bar],[-1.25,-1.25],color=ink,lw=2)
-    ax.plot([0,0],[-1.32,-1.18],color=ink,lw=.7); ax.plot([bar,bar],[-1.32,-1.18],color=ink,lw=.7)
-    ax.text(bar/2,-1.38,f"Scale bar {bar:.1f} m",ha="center",va="top",fontsize=6.5,color=light)
-    # Compact drawing-sheet footer / title block.
-    ax.plot([0, w], [-1.72, -1.72], color=light, lw=0.65)
-    ax.text(0, -1.92, "BUILDWISE AI", ha="left", va="center", fontsize=8, color=ink, fontweight="bold")
-    ax.text(w, -1.92, f"{title}  |  DIMENSIONS IN METRES  |  CONCEPT DRAWING",
-            ha="right", va="center", fontsize=6.5, color=light, fontweight="bold")
-    ax.set_title(f"ARCHITECTURAL FLOOR PLAN — {title}", fontsize=11, pad=16, color=ink, fontweight="bold")
-    fig.tight_layout(pad=1.3)
+    # Overall and chained dimensions tied to actual template divisions.
+    def hdim(xa,xb,y,label,base):
+        ax.plot([xa,xa],[base,y],color=secondary,lw=.4); ax.plot([xb,xb],[base,y],color=secondary,lw=.4)
+        ax.annotate("",xy=(xa,y),xytext=(xb,y),arrowprops=dict(arrowstyle="<->",lw=.6,color=secondary))
+        ax.text((xa+xb)/2,y+.07,label,ha="center",va="bottom",fontsize=6.5,color=secondary)
+    def vdim(ya,yb,x,label,base):
+        ax.plot([base,x],[ya,ya],color=secondary,lw=.4); ax.plot([base,x],[yb,yb],color=secondary,lw=.4)
+        ax.annotate("",xy=(x,ya),xytext=(x,yb),arrowprops=dict(arrowstyle="<->",lw=.6,color=secondary))
+        ax.text(x-.07,(ya+yb)/2,label,rotation=90,ha="right",va="center",fontsize=6.5,color=secondary)
+    hdim(0,w,L+1.25,f"{w:.2f} m",L)
+    vdim(0,L,-1.2,f"{L:.2f} m",0)
+    # First-level partitions on the top and left edges provide meaningful chained dimensions.
+    xs=sorted(set(round(v*w,3) for room in template for v in (room[0],room[2]) if 0<v<1))
+    ys=sorted(set(round(v*L,3) for room in template for v in (room[1],room[3]) if 0<v<1))
+    chain=[0]+xs+[w]
+    for a,b in zip(chain,chain[1:]): hdim(a,b,L+.65,f"{b-a:.2f}",L)
+    ychain=[0]+ys+[L]
+    # Limit crowded side-chain labels for very small footprints.
+    if len(ychain)<=6:
+        for a,b in zip(ychain,ychain[1:]): vdim(a,b,-.62,f"{b-a:.2f}",0)
+    ax.annotate("N",xy=(w+.8,L-.2),xytext=(w+.8,L-.9),arrowprops=dict(arrowstyle="-|>",lw=1,color=ink),ha="center",fontsize=9,fontweight="bold")
+    bar=min(2.0,w*.3); ax.plot([0,bar],[-1.22,-1.22],color=ink,lw=2)
+    ax.text(bar/2,-1.35,f"Scale bar {bar:.1f} m",ha="center",va="top",fontsize=6,color=secondary)
+    ax.add_patch(Rectangle((-1.75,-2.3),w+3.65,L+4.2,fill=False,ec="#9ca3af",lw=.65,zorder=0))
+    ax.text(0,-1.83,"BUILDWISE AI  |  ARCHITECTURAL CONCEPT",ha="left",va="center",fontsize=7.2,color=ink,fontweight="bold")
+    ax.text(0,-2.08,f"PROJECT: {btype.upper()}   DRAWING: A-{floor_idx+1:02d}   UNITS: METRES",ha="left",va="center",fontsize=5.8,color=secondary)
+    title=["GROUND FLOOR PLAN","FIRST FLOOR PLAN","SECOND FLOOR PLAN","THIRD FLOOR PLAN"][floor_idx]
+    ax.text(w,-1.83,f"{title}  |  NOT FOR CONSTRUCTION",ha="right",va="center",fontsize=6,color=secondary,fontweight="bold")
+    ax.text(w,-2.08,f"APPROX. FLOOR AREA: {area:.1f} m²   SCALE: SCHEMATIC",ha="right",va="center",fontsize=5.8,color=secondary)
+    ax.set_title(f"ARCHITECTURAL FLOOR PLAN — {title}",fontsize=11,pad=16,color=ink,fontweight="bold")
+    fig.tight_layout(pad=1.0)
     return fig
 
 st.subheader("2. Architectural plans — every selected floor")
-st.caption("Improved architectural-sheet presentation: stronger wall hierarchy, clearer room labels separated from furniture, higher-resolution plans, dimension chains, window/door symbols, stair direction, north arrow and a drawing footer. These remain schematic concept plans; actual surveyed geometry, room requirements, openings, services, ventilation/daylight and local rules require architectural coordination.")
+st.caption("Architectural concept sheets with room dimensions and approximate areas, partition-based dimension chains, wall hierarchy, door/window symbols, furniture, stair direction, north arrow, and a drawing title block. These remain schematic concept plans; actual surveyed geometry, room requirements, openings, services, ventilation/daylight and local rules require architectural coordination.")
 tabs = st.tabs([("Ground floor" if i == 0 else f"Floor {i+1}") for i in range(chosen_floors)])
 for i, tab in enumerate(tabs):
     with tab:
