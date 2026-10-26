@@ -186,13 +186,22 @@ def room_plan(floor_idx, width, length, btype):
         if y0 > 0.001: ax.plot([xa,xb],[ya,ya],color=ink,lw=1.35,zorder=3)
         if y1 < 0.999: ax.plot([xa,xb],[yb,yb],color=ink,lw=1.35,zorder=3)
         rw,rh=xb-xa,yb-ya
-        label=f"{name}\n{rw:.2f} × {rh:.2f} m  |  {rw*rh:.1f} m²"
-        fs=5.0 if min(rw,rh)<2.1 else 5.8
-        # Keep room labels near the top edge so they do not cover the furniture plan.
-        ax.text((xa+xb)/2, yb-min(.28, rh*.16), label, ha="center", va="top", fontsize=fs,
-                color=ink, fontweight="semibold", zorder=7)
-        # Furniture is drawn in the usable lower/central portion of each room.
-        cx,cy=(xa+xb)/2, ya+rh*.43
+        # Wrap long room names to the actual room width so labels never spill into adjacent rooms.
+        import textwrap
+        chars_per_line = max(7, min(20, int(rw * 4.2)))
+        room_name = "\n".join(textwrap.wrap(name, width=chars_per_line, break_long_words=False))
+        dims = f"{rw:.2f} × {rh:.2f} m  |  {rw*rh:.1f} m²"
+        fs = 4.0 if min(rw, rh) < 1.8 else (4.7 if rw < 2.6 else 5.3)
+        # Compact centered labels; keep a clear furniture zone below them.
+        label_y = yb - min(.16, rh*.09)
+        ax.text((xa+xb)/2, label_y, room_name, ha="center", va="top", fontsize=fs,
+                linespacing=0.92, color=ink, fontweight="bold", zorder=7,
+                bbox=dict(facecolor="white", edgecolor="none", pad=0.35, alpha=0.94))
+        ax.text((xa+xb)/2, label_y-min(.22, rh*.13), dims, ha="center", va="top", fontsize=max(3.4, fs-.5),
+                color=secondary, zorder=7,
+                bbox=dict(facecolor="white", edgecolor="none", pad=0.2, alpha=0.94))
+        # Furniture is drawn lower in each room, leaving labels readable and unobstructed.
+        cx,cy=(xa+xb)/2, ya+rh*.38
         if kind == "bed":
             bw,bh=min(rw*.48,1.65),min(rh*.48,1.95)
             ax.add_patch(Rectangle((cx-bw/2,cy-bh/2),bw,bh,fill=False,ec=furniture,lw=1.0,zorder=5))
