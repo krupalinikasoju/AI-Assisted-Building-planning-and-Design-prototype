@@ -158,6 +158,15 @@ def room_plan(floor_idx, width, length, btype):
                 (.00,.00,.43,.55,"FAMILY LOUNGE","living"), (.43,.00,.73,.55,"BEDROOM 2","bed"),
                 (.73,.00,1.00,.55,"STAIR / LANDING","stair")]
 
+    # Upper storeys should not all repeat the same drawing. Re-arrange the upper-floor
+    # template for higher levels while preserving room types and the same footprint.
+    if floor_idx == 2:
+        template = [(1-x1, 1-y1, 1-x0, 1-y0, name, kind)
+                    for x0,y0,x1,y1,name,kind in template]
+    elif floor_idx >= 3:
+        template = [(1-x1, y0, 1-x0, y1, name, kind)
+                    for x0,y0,x1,y1,name,kind in template]
+
     # For a portrait footprint, rotate the normalized plan so the long direction is used efficiently.
     if aspect < 0.82:
         template = [(y0, x0, y1, x1, name, kind) for x0,y0,x1,y1,name,kind in template]
@@ -286,7 +295,44 @@ def room_plan(floor_idx, width, length, btype):
                 ax.plot([xa+.12,xb-.12],[yy,yy],color=furniture,lw=.5,zorder=5)
             ax.annotate("UP",xy=(cx,yb-.12),xytext=(cx,ya+.12),arrowprops=dict(arrowstyle="->",lw=.7,color=furniture),ha="center",va="center",fontsize=6,color=furniture,zorder=6)
 
-    # Main entrance and windows. These are schematic opening markers, not construction details.
+    # Draw internal door openings at shared room partitions. These are schematic
+    # swing symbols; the white gap visually interrupts the partition and the arc shows swing.
+    seen_doors = set()
+    door_w = min(.82, max(.68, min(w, L)*.10))
+    for i, r1 in enumerate(rooms):
+        ax1, ay1, bx1, by1, n1, k1 = r1
+        for r2 in rooms[i+1:]:
+            ax2, ay2, bx2, by2, n2, k2 = r2
+            # Shared vertical wall
+            shared_x = None
+            if abs(bx1-ax2) < .015: shared_x = bx1
+            elif abs(bx2-ax1) < .015: shared_x = bx2
+            if shared_x is not None:
+                lo, hi = max(ay1,ay2), min(by1,by2)
+                if hi-lo > door_w+.15:
+                    cy_d = (lo+hi)/2
+                    key=('v',round(shared_x,2),round(cy_d,2))
+                    if key not in seen_doors:
+                        seen_doors.add(key)
+                        ax.plot([shared_x,shared_x],[cy_d-door_w/2,cy_d+door_w/2],color='white',lw=3.2,zorder=8)
+                        ax.plot([shared_x,shared_x+door_w*.72],[cy_d-door_w/2,cy_d-door_w/2],color=door_color,lw=.75,zorder=9)
+                        ax.add_patch(Arc((shared_x,cy_d-door_w/2),door_w,door_w,theta1=0,theta2=90,ec=door_color,lw=.7,zorder=9))
+            # Shared horizontal wall
+            shared_y = None
+            if abs(by1-ay2) < .015: shared_y = by1
+            elif abs(by2-ay1) < .015: shared_y = by2
+            if shared_y is not None:
+                lo, hi = max(ax1,ax2), min(bx1,bx2)
+                if hi-lo > door_w+.15:
+                    cx_d = (lo+hi)/2
+                    key=('h',round(cx_d,2),round(shared_y,2))
+                    if key not in seen_doors:
+                        seen_doors.add(key)
+                        ax.plot([cx_d-door_w/2,cx_d+door_w/2],[shared_y,shared_y],color='white',lw=3.2,zorder=8)
+                        ax.plot([cx_d-door_w/2,cx_d-door_w/2],[shared_y,shared_y+door_w*.72],color=door_color,lw=.75,zorder=9)
+                        ax.add_patch(Arc((cx_d-door_w/2,shared_y),door_w,door_w,theta1=0,theta2=90,ec=door_color,lw=.7,zorder=9))
+
+    # Main entrance and exterior windows. These are schematic opening markers, not construction details.
     ew=min(.95,max(.70,w*.075)); ex=w*.20
     ax.plot([ex-ew/2,ex+ew/2],[0,0],color="white",lw=4.5,zorder=8)
     ax.plot([ex-ew/2,ex-ew/2],[0,ew],color=door_color,lw=.8,zorder=9)
