@@ -63,14 +63,47 @@ st.info(
     "The plot dimensions are an estimated near-rectangular geometry derived from area, not a surveyed boundary. "
     "Coverage and setback values below are demo assumptions, not verified rules for the entered location."
 )
+# Location-aware rule-source screening. A typed location is not enough to certify plot-specific compliance.
+loc_lower = location.lower()
+if any(token in loc_lower for token in ["telangana", "hyderabad", "secunderabad"]):
+    region_label = "Telangana — likely relevant state framework"
+    planning_source = "TG-bPASS / BuildNow official rule and GO portals"
+    planning_url = "https://buildnow.telangana.gov.in/go-and-act/"
+    planning_status = "Official source identified; exact authority/zone and plot conditions still need checking"
+else:
+    region_label = "Region not confidently resolved"
+    planning_source = "Identify the applicable municipal/development authority"
+    planning_url = ""
+    planning_status = "Location-specific rule source not yet confirmed"
+
 rules_df = pd.DataFrame([
-    ["Plot geometry", f"{plot_width:.2f} m × {plot_length:.2f} m", "Assumed from area; survey required"],
-    ["Coverage used in concept", f"{coverage_assumption*100:.0f}%", "Placeholder only; verify local rules"],
-    ["Setback used in concept", f"{setback_assumption:.1f} m each side", "Placeholder only; verify local rules"],
-    ["Soil bearing capacity", "Not provided", "Geotechnical report required"],
-    ["FAR/FSI / height / fire limits", "Not verified", "Check applicable local authority rules"],
+    ["Location / jurisdiction", region_label, planning_status],
+    ["Plot geometry", f"{plot_width:.2f} m × {plot_length:.2f} m", "Estimated from area only; survey dimensions required"],
+    ["Coverage used in concept", f"{coverage_assumption*100:.0f}%", "Illustrative assumption — not a compliance result"],
+    ["Setback used in concept", f"{setback_assumption:.1f} m each side", "Illustrative assumption — verify road width, zone and plot conditions"],
+    ["Soil bearing capacity", "Unknown", "Site-specific geotechnical report required"],
+    ["FAR/FSI / height / fire limits", "Not calculated as compliant", "Requires applicable rule, plot/road/zone details and authority review"],
 ], columns=["Assessment item", "Prototype value", "Status"])
 st.dataframe(rules_df, use_container_width=True, hide_index=True)
+if planning_url:
+    st.markdown(f"**Regional rules source:** [{planning_source}]({planning_url})")
+else:
+    st.markdown(f"**Regional rules source:** {planning_source}")
+
+st.markdown("#### Code-based screening and approval readiness")
+st.warning(
+    "This dashboard can show preliminary checks and missing evidence; it cannot issue statutory building approval or certify structural safety. "
+    "A result is marked 'screened' only when the required data and calculation are actually available. The current three-input prototype does not contain enough site or structural data to approve the building."
+)
+code_framework_df = pd.DataFrame([
+    ["Architectural/site planning", "Applicable state/local building rules and current amendments", "Source lookup only; exact plot zoning and road width not entered"],
+    ["RCC member design", "IS 456 (plain and reinforced concrete)", "Not verified — complete member geometry, reinforcement, materials, and load combinations required"],
+    ["Dead and imposed loads", "IS 875 Parts 1 and 2", "Simplified load assumptions; occupancy-specific loads need verification"],
+    ["Wind loads", "IS 875 Part 3", "Not verified — site exposure, height and building parameters required"],
+    ["Earthquake design", "Applicable current IS 1893 provisions and related detailing standards", "Not verified — seismic parameters and complete structural model required"],
+    ["Soil investigation / foundations", "IS 1892 and IS 1904; relevant foundation standards", "Not verified — geotechnical report and foundation design checks required"],
+], columns=["Check area", "Relevant code framework", "Current app status"])
+st.dataframe(code_framework_df, use_container_width=True, hide_index=True)
 
 st.markdown("**Candidate floor options**")
 option_df = pd.DataFrame([
@@ -723,7 +756,7 @@ for col in columns:
         "Axial load indicator (kN)": round(axial_indicator, 2),
         "Storey-height assumption (m)": 3.0,
         "Slenderness indicator (height / smaller dimension)": round(3.0 / min(column_b, column_h), 2),
-        "Status": "Capacity/stability not verified"
+        "Status": "NOT APPROVED — frame analysis and IS 456 checks required"
     })
 st.markdown("#### Columns — axial load and stability screening")
 st.dataframe(pd.DataFrame(column_rows), use_container_width=True, hide_index=True)
@@ -743,7 +776,7 @@ for slab in slabs:
         "Service area load (kN/m²)": round(slab_load, 2),
         "Short-span strip BM (kN·m/m)": round(slab_moment, 2),
         "Short-span strip SF (kN/m)": round(slab_shear, 2),
-        "Status": "Panel/continuity design not verified"
+        "Status": "NOT APPROVED — slab reinforcement, continuity and deflection checks required"
     })
 st.markdown("#### Slabs — short-span strip bending and shear indicators")
 st.dataframe(pd.DataFrame(slab_rows), use_container_width=True, hide_index=True)
@@ -761,7 +794,7 @@ for footing in footings:
         "Trial footing (m)": "1.5 × 1.5 (assumed)",
         "Axial load indicator (kN)": round(axial_indicator, 2),
         "Average soil pressure indicator (kN/m²)": round(pressure_indicator, 2),
-        "Status": "Bearing/flexure/punching checks need site data"
+        "Status": "NOT APPROVED — geotechnical data and footing checks required"
     })
 st.markdown("#### Foundations — axial load and soil-pressure indicators")
 st.dataframe(pd.DataFrame(foundation_rows), use_container_width=True, hide_index=True)
@@ -887,8 +920,13 @@ Beam span: {analysis_span:.2f} m
 Illustrative beam line load: {analysis_line_load:.2f} kN/m
 Illustrative maximum beam moment: {analysis_mmax:.2f} kN·m
 
-Verification status: NOT A CONSTRUCTION DESIGN
-- Local planning rules, soil capacity, wind/seismic design and complete RCC code checks are not verified.
+Verification status: PRELIMINARY SCREENING ONLY — NOT APPROVED
+- No statutory approval is issued. Local planning rules, soil capacity, wind/seismic design and complete RCC code checks are not verified.
+
+Code framework to verify during professional review:
+- Planning: applicable current local/state building rules and amendments.
+- RCC: IS 456; loads: relevant parts of IS 875; soil investigation/foundations: IS 1892 and IS 1904; earthquake design: applicable current IS 1893 provisions.
+- Listing a code is not evidence that the design complies with it.
 
 Important limitations:
 - Plot shape, coverage and setbacks are assumptions, not verified site data.
