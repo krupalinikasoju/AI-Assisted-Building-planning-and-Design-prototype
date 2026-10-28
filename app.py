@@ -91,24 +91,24 @@ else:
     st.markdown(f"**Regional rules source:** {planning_source}")
 
 st.markdown("#### Code-based screening and approval readiness")
-st.warning(
-    "This dashboard can show preliminary checks and missing evidence; it cannot issue statutory building approval or certify structural safety. "
-    "A result is marked 'screened' only when the required data and calculation are actually available. The current three-input prototype does not contain enough site or structural data to approve the building."
+st.info(
+    "Approval-style status is shown as a screening outcome: preliminary indicator calculated, conditional / data required, or authority review required. "
+    "This is more informative than marking every item NOT APPROVED, but it is not statutory permission or a certified structural pass. The three-input prototype still lacks plot-specific rule details, geotechnical data, and a complete structural model."
 )
 code_framework_df = pd.DataFrame([
-    ["Architectural/site planning", "Applicable state/local building rules and current amendments", "Source lookup only; exact plot zoning and road width not entered"],
-    ["RCC member design", "IS 456 (plain and reinforced concrete)", "Not verified — complete member geometry, reinforcement, materials, and load combinations required"],
-    ["Dead and imposed loads", "IS 875 Parts 1 and 2", "Simplified load assumptions; occupancy-specific loads need verification"],
-    ["Wind loads", "IS 875 Part 3", "Not verified — site exposure, height and building parameters required"],
-    ["Earthquake design", "Applicable current IS 1893 provisions and related detailing standards", "Not verified — seismic parameters and complete structural model required"],
-    ["Soil investigation / foundations", "IS 1892 and IS 1904; relevant foundation standards", "Not verified — geotechnical report and foundation design checks required"],
+    ["Architectural/site planning", "Applicable state/local building rules and current amendments", "Regional source identified where possible; plot zone and road width needed for a conditional check"],
+    ["RCC member design", "IS 456 (plain and reinforced concrete)", "Design check pending — section, reinforcement, materials and load combinations required"],
+    ["Dead and imposed loads", "IS 875 Parts 1 and 2", "Preliminary load estimate — occupancy and applicable load combinations need verification"],
+    ["Wind loads", "IS 875 Part 3", "Conditional — site exposure, height and building parameters required"],
+    ["Earthquake design", "Applicable current IS 1893 provisions and related detailing standards", "Conditional — seismic parameters and complete structural model required"],
+    ["Soil investigation / foundations", "IS 1892 and IS 1904; relevant foundation standards", "Conditional — geotechnical report and foundation design checks required"],
 ], columns=["Check area", "Relevant code framework", "Current app status"])
 st.dataframe(code_framework_df, use_container_width=True, hide_index=True)
 
 st.markdown("**Candidate floor options**")
 option_df = pd.DataFrame([
     {"Option": option_labels[f], "Floors": f, "Indicative total floor area (m²)": round(floor_plate*f, 1),
-     "Status": "Candidate only — feasibility checks required"}
+     "Status": "Preliminary option — continue to design screening"}
     for f in options
 ])
 st.dataframe(option_df, use_container_width=True, hide_index=True)
@@ -756,7 +756,7 @@ for col in columns:
         "Axial load indicator (kN)": round(axial_indicator, 2),
         "Storey-height assumption (m)": 3.0,
         "Slenderness indicator (height / smaller dimension)": round(3.0 / min(column_b, column_h), 2),
-        "Status": "NOT APPROVED — frame analysis and IS 456 checks required"
+        "Status": "Load indicator calculated — member capacity check pending"
     })
 st.markdown("#### Columns — axial load and stability screening")
 st.dataframe(pd.DataFrame(column_rows), use_container_width=True, hide_index=True)
@@ -776,7 +776,7 @@ for slab in slabs:
         "Service area load (kN/m²)": round(slab_load, 2),
         "Short-span strip BM (kN·m/m)": round(slab_moment, 2),
         "Short-span strip SF (kN/m)": round(slab_shear, 2),
-        "Status": "NOT APPROVED — slab reinforcement, continuity and deflection checks required"
+        "Status": "Bending/shear indicators calculated — slab design checks pending"
     })
 st.markdown("#### Slabs — short-span strip bending and shear indicators")
 st.dataframe(pd.DataFrame(slab_rows), use_container_width=True, hide_index=True)
@@ -794,7 +794,7 @@ for footing in footings:
         "Trial footing (m)": "1.5 × 1.5 (assumed)",
         "Axial load indicator (kN)": round(axial_indicator, 2),
         "Average soil pressure indicator (kN/m²)": round(pressure_indicator, 2),
-        "Status": "NOT APPROVED — geotechnical data and footing checks required"
+        "Status": "Soil-pressure indicator calculated — compare with verified soil capacity"
     })
 st.markdown("#### Foundations — axial load and soil-pressure indicators")
 st.dataframe(pd.DataFrame(foundation_rows), use_container_width=True, hide_index=True)
@@ -920,8 +920,8 @@ Beam span: {analysis_span:.2f} m
 Illustrative beam line load: {analysis_line_load:.2f} kN/m
 Illustrative maximum beam moment: {analysis_mmax:.2f} kN·m
 
-Verification status: PRELIMINARY SCREENING ONLY — NOT APPROVED
-- No statutory approval is issued. Local planning rules, soil capacity, wind/seismic design and complete RCC code checks are not verified.
+Verification status: PRELIMINARY ENGINEERING SCREENING — CONDITIONAL
+- The app calculates preliminary indicators and identifies checks that remain. This is not statutory approval or a certified structural design. Planning compliance, soil capacity, wind/seismic design and complete RCC checks require verified inputs and professional review.
 
 Code framework to verify during professional review:
 - Planning: applicable current local/state building rules and amendments.
